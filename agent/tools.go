@@ -67,6 +67,7 @@ type ToolSet struct {
 	// touches get anchored to it as lineage/provenance (NOT visibility — the asset
 	// graph is global and shared). Worker = its claimed intent; planner = begin root.
 	ownerNode int64
+	taskDir   string // task-local artifact root, set by the runtime (never by the model)
 	GoalMet   bool
 	Reason    string
 	writes    WriteCounts
@@ -1180,8 +1181,15 @@ func (t *ToolSet) proveGoal() actool.CoreTool {
 			if err != nil || evidenceNode == nil || (evidenceNode.Kind != db.KindFact && evidenceNode.Kind != db.KindFinding) {
 				return actool.Errorf("evidence_id 必须是本任务或直接关联任务的事实/漏洞节点"), nil
 			}
-			_ = t.ts.Link(ev, db.RelProves, goal)
-			_ = t.ts.SetNodeState(goal, "met")
+			if err := t.checkGoalEvidence(goalNode, evidenceNode); err != nil {
+				return actool.Errorf(err.Error()), nil
+			}
+			if err := t.ts.Link(ev, db.RelProves, goal); err != nil {
+				return actool.Errorf(fmt.Sprintf("근거 연결 실패: %v", err)), nil
+			}
+			if err := t.ts.SetNodeState(goal, "met"); err != nil {
+				return actool.Errorf(fmt.Sprintf("목표 저장 실패: %v", err)), nil
+			}
 			// 每标记一个目标 met，就检查本任务是否【所有目标】都已 met；若是，自动判定
 			// 任务完成（置 GoalMet），无需再依赖模型显式调 goal_met。
 			if goals, err := t.ts.ListByKind(db.KindGoal, 1000); err == nil && len(goals) > 0 {
@@ -1208,6 +1216,13 @@ func (t *ToolSet) goalMet() actool.CoreTool {
 		func(_ context.Context, in json.RawMessage) (actool.Result, error) {
 			var a struct{ Reason string }
 			_ = json.Unmarshal(in, &a)
+			if t.ts == nil {
+				return actool.Errorf("작업 문맥 없이 완료할 수 없습니다"), nil
+			}
+			goals, err := t.ts.ListByKind(db.KindGoal, 1000)
+			if err != nil || !allGoalsProven(goals) {
+				return actool.Errorf("미증명 목표가 남아 있습니다. 실제 근거로 prove_goal을 먼저 호출하세요"), nil
+			}
 			t.GoalMet = true
 			t.Reason = a.Reason
 			return actool.Text("acknowledged: goal marked met"), nil

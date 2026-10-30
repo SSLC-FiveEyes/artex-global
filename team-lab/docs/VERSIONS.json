@@ -1,0 +1,314 @@
+{
+  "recorded_on": "2026-10-29",
+  "stage": "single_search_sqli_reflected_xss_limited_probe_completed_not_observed_model_review_needed",
+  "common_context_version_at_preparation": "2026-10-27-v8",
+  "repository": {
+    "origin": "https://github.com/SSLC-FiveEyes/artex-global.git",
+    "branch_at_clone": "main",
+    "commit_at_clone": "fdfb7a17b7da5e2de716c0e98475ec77a41c64c6"
+  },
+  "deployment_candidate": {
+    "status": "historical_initial_release_superseded_by_local_completion_patch",
+    "image_repository": "ghcr.io/jiwoochris/artex-global",
+    "tag": "v0.3.15-global.1",
+    "release_source_commit": "d6964594a0221cd921b85056d604bce9d8ce54df",
+    "selected_image_digest": "sha256:2e42cf912a56fcc6cc3b19e905a0d04f38d1725739d49d37dc15ed7a079e44d6",
+    "source_matches_clone": false,
+    "skills_alignment_verified": true,
+    "selected_index_digest": "sha256:0fc4c91263bc072f831767e4669f41cccbe02801a785d8bae6e5c819b006b19c",
+    "skills_source": "same image bundle; verified against release source",
+    "bundled_skill_files": 21,
+    "deployed_image_id": "sha256:2e42cf912a56fcc6cc3b19e905a0d04f38d1725739d49d37dc15ed7a079e44d6",
+    "platform": "linux/arm64",
+    "result_record": "team-lab/results/2026-10-27-artex-docker-ollama-connection.json"
+  },
+  "ollama": {
+    "installed_version": "0.32.5",
+    "verified": true,
+    "verification_scope": "macOS installation and local API"
+  },
+  "previous_local_model_candidate": {
+    "status": "proposed_not_downloaded",
+    "base_model": "qwen3:8b",
+    "alias": "artex-qwen3-8b-32k",
+    "digest": null,
+    "proposed_num_ctx": 32768,
+    "verified": false
+  },
+  "local_model_candidate": {
+    "status": "local_completion_patch_bounded_smoke_verified",
+    "base_model": "qwen3.5:9b-q4_K_M",
+    "alias": "artex-qwen35-9b-q4km-32k-tools",
+    "digest": "56671c2ab9385f9cfcb404638e32cd62d88e3501d44822208363c010179a3c90",
+    "quantization": "Q4_K_M",
+    "download_size_bytes": 6550825550,
+    "native_context_tokens_verified": 32768,
+    "openai_compatible_context_tokens_observed": 32768,
+    "openai_compatible_tool_roundtrip_verified": true,
+    "openai_compatible_32k_context_verified": true,
+    "long_context_workload_verified": false,
+    "artex_integration_verified": true,
+    "memory_caveat": "Latest short test system-wide swap observed 2040.12M before and 2821.00M after; phase snapshots, not model-only or peak memory.",
+    "result_record": "team-lab/results/2026-10-27-qwen35-32k-alias-smoke.json",
+    "alias_digest": "607f4070f5ce001100e163ee82c066bf97962e61717fd123e5b028306b98c63c",
+    "previous_result_record": "team-lab/results/2026-10-27-qwen35-9b-q4km-local-smoke.json",
+    "artex_integration_scope": "Initial streaming/provider and arithmetic compatibility plus one actual planner/worker normal HTTP GET; see separate dated records and quality warnings.",
+    "artex_worker_execution_verified": true,
+    "artex_connection_result_record": "team-lab/results/2026-10-27-artex-docker-ollama-connection.json",
+    "artex_worker_execution_scope": "One normal GET completed via deadline wrap-up; later worker collected 8 public GET responses, but result recording required operator assistance and task timed out with goal open. Not autonomous full diagnosis or attack validation.",
+    "artex_worker_result_record": "team-lab/results/local-normal-20261029-104644-64aca5.json",
+    "latest_worker_result_record": "team-lab/results/2026-10-29-qwen-completion-repair.json",
+    "current_reasoning_effort": "low",
+    "previous_alias": "artex-qwen35-9b-q4km-32k",
+    "previous_alias_digest": "ca7705c810f09aa511e5cdd68ffd32cfe7736bf7d7ba8ea0ca7cf353a03cb35d"
+  },
+  "frontier_candidate": {
+    "provider": null,
+    "model_id": null,
+    "budget": null
+  },
+  "execution": {
+    "dependencies_installed": false,
+    "images_downloaded": true,
+    "models_downloaded": true,
+    "model_inference_tested": true,
+    "built": true,
+    "services_started": true,
+    "services_started_scope": "ARTEX and PostgreSQL in artex-team Docker Compose; native Ollama retained.",
+    "target_requests_sent": true,
+    "committed": false,
+    "pushed": false,
+    "artex_configuration_applied": true,
+    "target_requests_scope": "Local Victim trials: normal GET1, initial public audit GET8, post-patch public audit GET8. Task15 had zero HTTP and was not accepted as a diagnosis. No authenticated/input attacks or lab-path/SOC verification.",
+    "built_scope": "Pinned release d696 source plus completion contract patch, matching static UI; not full local HEAD."
+  },
+  "local_config_preparation": {
+    "recorded_on": "2026-10-27",
+    "status": "artex_config_applied_ollama_global_env_not_applied",
+    "model": "qwen3.5:9b-q4_K_M",
+    "planned_alias": "artex-qwen35-9b-q4km-32k",
+    "planned_context_tokens": 32768,
+    "files": [
+      "team-lab/config/Modelfile.qwen3.5-9b",
+      "team-lab/config/artex.mac.env",
+      "team-lab/config/ollama.mac.env",
+      "team-lab/config/llm-profile.local.json",
+      "team-lab/config/runtime-settings.json"
+    ],
+    "model_alias_registered": true,
+    "result_record": "team-lab/results/2026-10-27-local-config-preparation.json",
+    "registration_result_record": "team-lab/results/2026-10-27-qwen35-32k-alias-smoke.json",
+    "artex_configuration_applied": true,
+    "ollama_global_environment_applied": false,
+    "applied_to_artex": [
+      "team-lab/config/artex.mac.env",
+      "team-lab/config/llm-profile.local.json",
+      "team-lab/config/runtime-settings.json"
+    ],
+    "compose_file": "team-lab/config/compose.mac.local.yaml",
+    "deployment_result_record": "team-lab/results/2026-10-27-artex-docker-ollama-connection.json"
+  },
+  "normal_worker_trial": {
+    "recorded_on": "2026-10-29",
+    "task_id": "1",
+    "run_id": "local-normal-20261029-104644-64aca5",
+    "task_status": "done",
+    "goals_met": 1,
+    "goals_total": 1,
+    "http_status": 200,
+    "matching_apache_requests": 1,
+    "created_to_completed_seconds": 378,
+    "curl_total_seconds": 0.016,
+    "completed_via_deadline_wrapup": true,
+    "exact_command_fidelity_passed": false,
+    "constraint_fidelity_passed": false,
+    "llm_calls": 13,
+    "system_swap_before_mib": 4887.56,
+    "system_swap_after_mib": 12293.44,
+    "resource_scope": "system-wide phase snapshots, not model-only/peak",
+    "result_record": "team-lab/results/local-normal-20261029-104644-64aca5.json"
+  },
+  "public_baseline_trial": {
+    "recorded_on": "2026-10-29",
+    "task_id": "2",
+    "run_id": "local-audit-20261029-113134-efada8",
+    "status": "public_baseline_collected_reviewed_task_timeout",
+    "task_status": "timeout",
+    "goals_met": 0,
+    "goals_total": 1,
+    "http_requests": 8,
+    "matching_apache_requests": 8,
+    "http_200": 6,
+    "http_404": 2,
+    "collector_seconds": 7.301085,
+    "created_to_terminal_seconds": 674,
+    "operator_assistance_count": 2,
+    "diagnostic_fact_id": 8,
+    "closure_hint_id": 9,
+    "actual_prove_goal_called": false,
+    "autonomous_completion_verified": false,
+    "registered_findings": 0,
+    "worker_command_fidelity_verified": true,
+    "temporary_worker_rules_restored": true,
+    "llm_calls": 13,
+    "input_tokens_cumulative": 161434,
+    "output_tokens_cumulative": 2430,
+    "target_image_changed_since_previous_trial": true,
+    "authenticated_or_input_attack_tests_run": false,
+    "pfsense_snort_splunk_verified": false,
+    "result_record": "team-lab/results/local-audit-20261029-113134-efada8.json",
+    "summary": "team-lab/results/local-audit-20261029-113134-efada8-summary.md"
+  },
+  "qwen_completion_repair": {
+    "status": "runtime_contract_deployed_unit_sdk_and_live_regressions_passed",
+    "date": "2026-10-29",
+    "reasoning_effort": "low",
+    "prompt_overrides": [
+      "worker",
+      "planner",
+      "mainagent"
+    ],
+    "binary_changed": true,
+    "primary_test_task_id": "7",
+    "primary_test_status": "done",
+    "primary_goals_met": 1,
+    "primary_goals_total": 1,
+    "evidence_directory": "team-lab/evidence/qwen-tool-fix-20261029",
+    "report": "team-lab/docs/Qwen-저장-종료-수정-2026-10-29.md",
+    "live_test_task_ids": [
+      "12",
+      "13",
+      "14"
+    ],
+    "final_build_live_test_task_ids": [
+      "13",
+      "14"
+    ],
+    "actual_runtime_version": "v0.3.15-global.1+completion.20261029.3",
+    "result_record": "team-lab/results/2026-10-29-qwen-completion-repair.json",
+    "first_execution_classification_fixed": true,
+    "latest_real_site_task_id": "16",
+    "latest_real_site_result": "team-lab/results/local-audit-rerun-20261029-140916-884e8a.json"
+  },
+  "active_deployment": {
+    "version": "v0.3.15-global.1+completion.20261029.3",
+    "image": "artex-local:completion-20261029-r3",
+    "image_id": "sha256:cefb86ea8c0e2f049ab9d7a3774ee4e418fb49a32dab1a03e3bf294aa50ec97e",
+    "binary_sha256": "2723b8c97d61c37b59295bbd13de60c552ef9915a1c4355271a14e01693cc82a",
+    "base_commit": "d6964594a0221cd921b85056d604bce9d8ce54df",
+    "change": "distinguish first authorized worker execution from persistence-only repair",
+    "tests": {
+      "agent_server": "passed for release and current workspace",
+      "contract_unit": 5,
+      "SDK_session": 3
+    },
+    "source_sha256": {
+      "completion_contract.go": "659d0dcf7e4d50ee26a6d065ead1d7a0d0736e96e7cf3311e20f9dbe4fe9b683",
+      "worker.go": "b005794eb7e519fbfb8994852eb483cc62e5ad043c04b71c42ea1dc9e2804ba2",
+      "planner.go": "ac09c6e5e58131240b2aab36ad43bc3f8ee1ed7a3505e90d3c91836b0a7e80fc",
+      "capture.go": "ac6dcb56484a71b7d26d894df408282c7cac75211e74edd9b79809cfe9455cff"
+    }
+  },
+  "previous_active_deployments": [
+    {
+      "base_commit": "d6964594a0221cd921b85056d604bce9d8ce54df",
+      "base_image": "sha256:2e42cf912a56fcc6cc3b19e905a0d04f38d1725739d49d37dc15ed7a079e44d6",
+      "image": "artex-local:completion-20261029-r2",
+      "image_id": "sha256:f50e8da5c4d52e5b12e4dff0e1cef7020136c384ee567c3e6f4d7340201eb9ae",
+      "repo_digests": [
+        "artex-local@sha256:f50e8da5c4d52e5b12e4dff0e1cef7020136c384ee567c3e6f4d7340201eb9ae"
+      ],
+      "version": "v0.3.15-global.1+completion.20261029.2",
+      "binary_sha256": "dab15edec6a104fe8c7e0a4bf456036d7dcd58dc02b7493b83b4c88cdf3f1fb3",
+      "go_builder": "golang@sha256:91eda9776261207ea25fd06b5b7fed8d397dd2c0a283e77f2ab6e91bfa71079d",
+      "source_sha256": {
+        "completion_contract.go": "2b5f3f70367400398ff0d5fff7043ee09650e433d0dc126aeb7fdb5d3f87b809",
+        "completion_contract_test.go": "4163010f5a6223248c850fa323a2b62844fbd2583883a4a7045791789698f7b1",
+        "completion_contract_integration_test.go": "1af76515e3986ad6f9364a5c0001868caa7617ee3388100a887e4abc57ef646f",
+        "worker.go": "b5e79458f6796117edc3a9c34e2138f5c2cdd9b5f2e3bebc9c012c169f988a3b",
+        "planner.go": "ac09c6e5e58131240b2aab36ad43bc3f8ee1ed7a3505e90d3c91836b0a7e80fc",
+        "capture.go": "ac6dcb56484a71b7d26d894df408282c7cac75211e74edd9b79809cfe9455cff"
+      },
+      "tests": {
+        "release_agent_server": "passed",
+        "workspace_agent_server": "passed",
+        "new_contract_tests": 6,
+        "fault_injection_session": "promise-only then forbidden Bash blocked then mock record_fact succeeded",
+        "proof_session": "successful mock prove_goal ends with zero subsequent model calls"
+      },
+      "backup": "postgres-before-binary-fix.sql and compose-before-binary-fix.yaml in this private evidence directory"
+    }
+  ],
+  "public_baseline_rerun": {
+    "task_id": "16",
+    "run_id": "local-audit-rerun-20261029-140916-884e8a",
+    "http_requests": 8,
+    "apache_log_matches": 8,
+    "fact_id": 54,
+    "goal_id": 53,
+    "goals_met": 1,
+    "goals_total": 1,
+    "task_status": "done",
+    "operator_assistance": false,
+    "seconds": 187,
+    "analysis_accuracy_passed": false,
+    "initial_attempt_task15_requests": 0,
+    "result_record": "team-lab/results/local-audit-rerun-20261029-140916-884e8a.json"
+  },
+  "latest_search_injection_trial": {
+    "recorded_on": "2026-10-29",
+    "task_id": "17",
+    "run_id": "search-injection-20261029-151924-0f2e27",
+    "endpoint": "/search.php?q",
+    "http_requests": 8,
+    "apache_matches": 8,
+    "all_http_200": true,
+    "goals_met": 2,
+    "goals_total": 2,
+    "task_status": "done",
+    "fact_id": 59,
+    "database_data_fingerprint_unchanged": true,
+    "sqli_boolean_pair_counts": [
+      0,
+      0
+    ],
+    "baseline_repeat_counts": [
+      179,
+      179
+    ],
+    "reflected_xss_browser_cases": 3,
+    "browser_replay_markers_executed": 0,
+    "full_dom_or_stored_xss_tested": false,
+    "registered_findings": 0,
+    "model_interpretation_errors_present": true,
+    "operator_record_or_closure_assistance": false,
+    "seconds": 279,
+    "result_record": "team-lab/results/search-injection-20261029-151924-0f2e27.json",
+    "methodology": {
+      "corrected_on": "2026-10-29",
+      "method": "source-informed operator-scripted limited test",
+      "strict_black_box": false,
+      "target_source_read_before_test": true,
+      "source_files_consulted": [
+        "Victim/public/search.php",
+        "Victim/public/content.php",
+        "Victim/app/bootstrap.php",
+        "Victim/app/config/database.php"
+      ],
+      "operator_prepared_endpoint_payloads_and_collector": true,
+      "raw_target_source_sent_to_worker": false,
+      "autonomous_discovery_or_payload_design_verified": false,
+      "operator_record_or_closure_assistance": false,
+      "scope_note": "Actual HTTP/browser replay/log/DB fingerprint observations remain valid; not a strict black-box or autonomous ARTEX attack evaluation."
+    }
+  },
+  "cleanup_2026_10_30": {
+    "image": "artex-local:cleanup-20261030-r1",
+    "removed_modes": [
+      "isolated-blackbox",
+      "get-only-30"
+    ],
+    "evidence": "team-lab/evidence/cleanup-20261030",
+    "task35_issues_fixed": false
+  }
+}

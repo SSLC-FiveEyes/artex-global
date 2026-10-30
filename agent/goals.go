@@ -79,7 +79,7 @@ func goalsSystem(dataDir string, withScope bool) string {
 	if withScope {
 		sys += goalsScopeTail
 	}
-	return sys + langDirective(resolveOutputLang())
+	return sys + "\n\n사용자가 진단 후 보고서를 요구하면 진단 결과의 근거 확보와 보고서 저장을 서로 다른 목표로 보존하세요. 보고서 작성 하나로 진단 요구를 대체하지 마세요. 진단 결과는 취약점 발견뿐 아니라 실제 시험 범위와 미실행·미확인 구분도 포함합니다." + langDirective(resolveOutputLang())
 }
 
 // GoalSpec is one decomposed objective.

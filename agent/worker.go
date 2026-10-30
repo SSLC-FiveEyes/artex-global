@@ -290,7 +290,7 @@ func workerSystem(proxyAddr, caCert, dataDir, runDir string) string {
 	// caCert is present only when the recording MITM is on, which is exactly when
 	// the traffic_* tools are registered — so it gates the traffic-tool note.
 	// Optional finding guidance is added for every role after tool resolution.
-	return body + workerTrafficBlock(caCert != "") + workerArtifactSpec(runDir) + langDirective(resolveOutputLang())
+	return body + workerTrafficBlock(caCert != "") + workerArtifactSpec(runDir) + diagnosticEvidenceGuidance + langDirective(resolveOutputLang())
 }
 
 // renderIntentTask formats the claimed intent for the worker's launch USER message:
@@ -362,6 +362,7 @@ func (w *Worker) execute(ctx context.Context, name string, taskID int64, as *db.
 	tsx := NewToolSet(ts, name)
 	tsx.SetFindingRecorder(w.findingRecorder)
 	tsx.SetTaskID(taskID)
+	tsx.taskDir = ensureRunDir(w.workDir, taskID, 0)
 	coverageEnabled := as == nil || as.CoverageEnabled(taskID)
 	tsx.SetCoverageEnabled(coverageEnabled)
 	if as != nil {
@@ -380,6 +381,8 @@ func (w *Worker) execute(ctx context.Context, name string, taskID int64, as *db.
 	ctx = WithRunInfo(ctx, RunInfo{TaskID: taskID, ExplorationID: explorationID(ts), IntentID: intent.ID})
 	tools, def, cleanup := AugmentTools(ctx, "worker", base)
 	defer cleanup()
+
+	tools = withoutLegacyObserver(tools)
 
 	// 意图是 worker 的【唯一职责、贯穿整个 run 的不变量】→ 连同启动指令、意图锚定的目标资产
 	// 原始数据一起放进 system prompt：system 每次 run 都重新拼一遍、绝不会被 compaction 压掉，
@@ -471,6 +474,10 @@ func (w *Worker) execute(ctx context.Context, name string, taskID int64, as *db.
 	if hooks != nil { // typed-nil guard: only set when concrete (avoids harness panic)
 		opts.Hooks = hooks
 	}
+	persisted := func() bool { c := tsx.Writes(); return c.Facts+c.Findings+c.Assets > 0 }
+	contract := &completionContractHooks{inner: opts.Hooks, waitForObservation: true, needsRepair: func() bool { return !persisted() }}
+	contract.success = func() bool { return contract.repair.Load() && persisted() }
+	opts.Hooks = contract
 	if w.tx != nil { // persist raw LLM conversation; one file per worked intent
 		opts.Transcript = w.tx
 		opts.SessionID = WorkerSessionID(ts.ID(), intent.ID)
@@ -530,6 +537,20 @@ func (w *Worker) execute(ctx context.Context, name string, taskID int64, as *db.
 	// enters the wrap-up phase on the live ctx, so a run whose tool overran the budget
 	// still settles (no external hard-timeout backstop needed). ctx itself carries only
 	// pause / planner kill / shutdown, which the engine distinguishes and re-queues/stops.
-	_, reason, err := captureRunSession(ctx, s, input, emitWrap)
+	runCtx, cancelRun := context.WithCancelCause(ctx)
+	defer cancelRun(nil)
+	contract.cancel = func() { cancelRun(errCompletionSatisfied) }
+	contract.abort = func() { cancelRun(errCompletionIncomplete) }
+	_, reason, err := captureRunSession(runCtx, s, input, emitWrap)
+	if ctx.Err() == nil && contract.repair.Load() && persisted() {
+		err = nil
+		reason = harness.ReasonCompleted
+	}
+	if err == nil && ctx.Err() == nil && !persisted() {
+		err = fmt.Errorf("completion contract: worker stopped without persisted results")
+		if emitWrap != nil {
+			emitWrap(db.Activity{Kind: "result", IsError: true, Summary: "결과가 실제 저장되지 않아 실행을 실패로 처리했습니다.", Detail: err.Error()})
+		}
+	}
 	return reason, tsx.Writes(), err
 }

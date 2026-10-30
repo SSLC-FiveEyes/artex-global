@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "id": "W05",
+  "title": "실습용 검색 기능의 SQL 주입 가능 여부 확인",
+  "status": "draft",
+  "enabled": false,
+  "target_base_url": null,
+  "prerequisites": ["SQL DB 사용 확인", "구분된 실습 경로", "더미 자료와 정상 조회 범위"],
+  "objective": "실습용 검색 입력에서 정상 조회 범위를 벗어난 결과가 나오는지 확인한다.",
+  "allowed_actions": [],
+  "normal_control": "정상 검색어로 허용 범위의 결과를 조회한다.",
+  "success_evidence": ["허용 범위 밖 더미 조회 결과", "웹 서버·애플리케이션·DB 관측 자료"],
+  "reset_required": ["DB 더미 자료와 서비스 기준 상태", "ARTEX 지식과 작업 기준 상태"],
+  "limits": {"approved": false, "duration_seconds": null, "http_request_limit": null, "target_concurrency": null},
+  "notes": "기능과 스택 확인 후 채택한다. 실행 payload나 도구 명령은 포함하지 않았다."
+}

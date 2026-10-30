@@ -10,6 +10,7 @@ import (
 	"github.com/Autumn-27/artex/db"
 	"github.com/Autumn-27/artex/intercept"
 	"github.com/Autumn-27/norma/agentcore"
+	"github.com/Autumn-27/norma/harness"
 	"github.com/Autumn-27/norma/llm"
 	"github.com/Autumn-27/norma/permission"
 	actool "github.com/Autumn-27/norma/tool"
@@ -341,7 +342,7 @@ const plannerDefaultTmpl = `你是一个网络安全平台授权渗透测试系�
 
 func plannerSystem(goal, dataDir, workDir string) string {
 	body := renderSystem("planner", plannerDefaultTmpl, PlannerVars{Goal: goal, DataDir: dataDir, Now: nowStr()})
-	return body + artifactSpec(workDir) + langDirective(resolveOutputLang())
+	return body + artifactSpec(workDir) + diagnosticEvidenceGuidance + langDirective(resolveOutputLang())
 }
 
 // Plan runs one planning round. emit, if non-nil, receives the planner's execution
@@ -352,7 +353,7 @@ func plannerSystem(goal, dataDir, workDir string) string {
 // and/or finding(s) reported (may be several — the engine debounces a burst; empty
 // for time/heartbeat wakes). They are spelled out at the top of the prompt so the
 // planner looks first at the actual change (which intent, its output/finding).
-func (p *Planner) Plan(ctx context.Context, taskID int64, as *db.AssetStore, ts *db.ExplorationStore, goal string, triggers []TriggerEvent, emit func(db.Activity)) (met bool, reason string, err error) {
+func (p *Planner) Plan(ctx context.Context, taskID int64, as *db.AssetStore, ts *db.ExplorationStore, goal string, triggers []TriggerEvent, emit func(db.Activity), hooks harness.HookRunner) (met bool, reason string, err error) {
 	// cold-digest §2.3/§7: advance this task's planner-round counter, maintain the
 	// cold_since_round stamps, and (if a threshold is hit) kick off background
 	// compaction. Synchronous part is cheap (a few queries); the LLM compaction
@@ -364,13 +365,13 @@ func (p *Planner) Plan(ctx context.Context, taskID int64, as *db.AssetStore, ts 
 		tsx.SetAssetStore(as, as.Companies())
 	}
 	tsx.SetTaskID(taskID)
+	tsx.taskDir = ensureRunDir(p.workDir, taskID, 0)
 	tsx.SetCoverageEnabled(as == nil || as.CoverageEnabled(taskID))
 	tsx.killWork = p.killWork   // enable kill_work tool (nil = unavailable)
 	tsx.steerWork = p.steerWork // enable steer_work tool (nil = unavailable)
 	if origin, _ := ts.OriginFactID(); origin > 0 {
 		tsx.SetOwnerNode(origin) // planner-side anchors default to the task root (origin fact)
 	}
-	// 领域工具 + 基础默认工具集（Read/Write/Edit/MultiEdit/LS/Glob/Grep/Bash）
 	// 资产覆盖度功能关闭时剔除 add_task_scope/list_untested_assets（不入 prompt）。
 	base := append(tsx.DropCoverageTools(tsx.PlannerTools()), actool.DefaultTools()...)
 	ctx = WithRunInfo(ctx, RunInfo{TaskID: taskID, ExplorationID: explorationID(ts)})
@@ -410,7 +411,7 @@ func (p *Planner) Plan(ctx context.Context, taskID int64, as *db.AssetStore, ts 
 		DeferredTools:   def.Deferred,
 		UnlockSet:       def.Unlock,
 		PermissionMode:  permission.ModeBypass,
-		EnableWebFetch:  true, // 走记录代理留痕；载入代理 CA 验证 MITM 重签的 HTTPS 证书
+		EnableWebFetch:  true,
 		WebFetchProxy:   p.proxyAddr,
 		WebFetchCACert:  p.proxyCACert,
 		// 联网搜索(可选)。ddgs 无需 key；brave-free 需 BraveKey；tavily 需 TavilyKey。
@@ -438,6 +439,9 @@ func (p *Planner) Plan(ctx context.Context, taskID int64, as *db.AssetStore, ts 
 		NonStreaming: p.nonStreaming(), // 该 profile 选非流式时走 Provider.Complete
 		MaxTokens:    p.maxTokens(),    // 0 = 不发上限,由服务端默认值决定
 	}
+	if hooks != nil {
+		opts.Hooks = hooks
+	}
 	if p.tx != nil { // persist raw LLM conversation; one accumulating file per task's planner
 		opts.Transcript = p.tx
 		opts.SessionID = fmt.Sprintf("exp%d-planner", ts.ID())
@@ -462,12 +466,42 @@ func (p *Planner) Plan(ctx context.Context, taskID int64, as *db.AssetStore, ts 
 		renderPlannerTodos(opts.Todos.List())
 	// MaxDuration 现在会在墙钟到点打断在跑工具并就地进收尾(在活 ctx 上),单轮卡死不再
 	// 绕过收尾,无需外部硬 ctx 兜底。ctx 只承载 pause / kill / shutdown。
-	_, _, err = captureRun(ctx, opts, input,
+	runCtx, cancelRun := context.WithCancelCause(ctx)
+	defer cancelRun(nil)
+	proven := func() bool { open, e := ts.HasOpenGoal(); return tsx.GoalMet && e == nil && !open }
+	contract := &completionContractHooks{inner: opts.Hooks, success: proven, cancel: func() { cancelRun(errCompletionSatisfied) }, abort: func() { cancelRun(errCompletionIncomplete) }}
+	contract.needsRepair = func() bool {
+		open, e := ts.HasOpenGoal()
+		if e != nil || !open {
+			return false
+		}
+		active, e := ts.HasActiveIntent()
+		if e != nil || active {
+			return false
+		}
+		for _, kind := range []string{db.KindFact, db.KindFinding} {
+			nodes, e := ts.ListByKindWithSources(kind, 100)
+			if e != nil {
+				return false
+			}
+			for _, n := range nodes {
+				if n.State != "origin" {
+					return true
+				}
+			}
+		}
+		return false
+	}
+	opts.Hooks = contract
+	_, _, err = captureRun(runCtx, opts, input,
 		func(r db.Activity) {
 			if emit != nil {
 				r.Worker = "planner" // planner activity has no intent_id (it generates them)
 				emit(r)
 			}
 		})
+	if ctx.Err() == nil && proven() {
+		return true, tsx.Reason, nil
+	}
 	return tsx.GoalMet, tsx.Reason, err
 }

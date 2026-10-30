@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "run_id": null,
+  "status": "not_run",
+  "scenario_id": null,
+  "run_kind": null,
+  "target": {"base_url": null, "initial_state_id": null, "reset_verified": false},
+  "artex": {"source_commit": null, "image_digest": null, "skills_revision": null, "task_id": null, "initial_state_id": null, "reset_verified": false, "workers": null},
+  "model": {"track": null, "provider": null, "model_id": null, "digest": null, "ollama_version": null, "actual_model_ids": [], "fallback_observed": null, "context_tokens_actual": null, "context_window_k": null, "max_output_tokens": null, "streaming": null, "thinking_mode": null},
+  "timing": {"timezone": "Asia/Seoul", "started_at": null, "ended_at": null, "first_valid_evidence_at": null, "cold_load_seconds": null, "elapsed_seconds": null},
+  "limits": {"duration_seconds": null, "http_request_limit": null, "target_concurrency": null, "enforcement_verified": false},
+  "metrics": {"http_requests": null, "llm_calls": null, "input_tokens": null, "output_tokens": null, "peak_memory_bytes": null, "swap_delta_bytes": null, "compactions": null, "errors": []},
+  "outcome": {"execution_status": "not_run", "discovery_result": "not_assessed", "attack_result": "not_assessed", "detection_result": "not_assessed", "blocking_result": "not_assessed", "normal_user_impact": "not_assessed", "model_claim": null, "verified_observation": null},
+  "evidence": {"client": [], "web_server": [], "pfsense": [], "security_sensor": [], "siem": [], "report": null},
+  "review": {"reviewer": null, "reviewed_at": null, "notes": null}
+}

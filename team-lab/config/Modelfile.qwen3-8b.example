@@ -1,0 +1,4 @@
+# 향후 artex-qwen3-8b-32k 이름으로 생성할 모델 설정 예시입니다.
+# 모델 다운로드나 등록은 수행하지 않았습니다.
+FROM qwen3:8b
+PARAMETER num_ctx 32768

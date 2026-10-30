@@ -1,0 +1,8 @@
+# 같은 Q4_K_M 가중치를 재사용하는 도구 호출용 32K 별칭.
+# Qwen 공식 precise coding 권장값을 참고한 로컬 비교 설정. 장시간 안정성 보장 아님.
+FROM qwen3.5:9b-q4_K_M
+PARAMETER num_ctx 32768
+PARAMETER temperature 0.6
+PARAMETER top_p 0.95
+PARAMETER top_k 20
+PARAMETER presence_penalty 0

@@ -83,3 +83,25 @@ secrets.env
 # artex.exe 를 포그라운드로 띄울 때 리다이렉트한 런타임 로그
 /artex.out.log
 /artex.err.log
+
+# SSLC-FiveEyes 팀 실험: 실제 환경과 원본 결과는 로컬 보관
+**/.env.*
+**/*.env.*
+!**/.env.example
+!**/*.env.example
+/team-lab/config/*.local.json
+/team-lab/results/*
+!/team-lab/results/.gitkeep
+/team-lab/evidence/*
+!/team-lab/evidence/.gitkeep
+/team-lab/models/
+/team-lab/backups/
+/team-lab/.secrets/
+
+# Mac 실제 사용 설정: 예시 파일은 보존하고 로컬 설정만 제외
+/team-lab/config/Modelfile.qwen3.5-9b
+/team-lab/config/artex.mac.env
+/team-lab/config/ollama.mac.env
+/team-lab/config/llm-profile.local.json
+/team-lab/config/runtime-settings.json
+/team-lab/config/compose.mac.local.yaml

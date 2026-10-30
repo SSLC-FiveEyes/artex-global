@@ -14,3 +14,24 @@ bench/.env
 bench/scheduler.py
 bench/entrypoint_v2.sh
 bench/seed_v2.sh
+
+# 팀 실험의 비밀값·원본 결과를 빌드 컨텍스트에서 제외
+.env
+**/.env
+**/.env.*
+**/*.env
+**/*.env.*
+**/*.local.json
+team-lab/results
+team-lab/evidence
+team-lab/models
+team-lab/backups
+team-lab/.secrets
+
+# Mac 실제 사용 설정을 이미지에 포함하지 않음
+team-lab/config/Modelfile.qwen3.5-9b
+team-lab/config/artex.mac.env
+team-lab/config/ollama.mac.env
+team-lab/config/llm-profile.local.json
+team-lab/config/runtime-settings.json
+team-lab/config/compose.mac.local.yaml

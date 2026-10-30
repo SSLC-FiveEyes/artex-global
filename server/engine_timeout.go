@@ -10,6 +10,7 @@ import (
 
 	"github.com/Autumn-27/artex/agent"
 	"github.com/Autumn-27/artex/db"
+	"github.com/Autumn-27/artex/intercept"
 )
 
 // 任务级超时协调器(见 docs/任务级超时与收尾设计.md §4/§8.5)。
@@ -261,7 +262,8 @@ func (e *Engine) runFinalPlannerRound(ctx context.Context, t *Task) (met bool) {
 		Summary: fmt.Sprintf(timeoutFinalRoundSummaryFmt, e.nextPlannerRound(t.ID))})
 	tTaskID, _ := strconv.ParseInt(t.ID, 10, 64)
 	e.BeginLLMCall(t.ID)
-	met, reason, err := planner.Plan(fctx, tTaskID, e.m.assets, t.Store, t.Goal, t.drainTriggers(), emit)
+	pctx := intercept.WithTaskContext(fctx, t.ID, "planner", emit)
+	met, reason, err := planner.Plan(pctx, tTaskID, e.m.assets, t.Store, t.Goal, t.drainTriggers(), emit, t.Guard.Hooks())
 	e.EndLLMCall(t.ID)
 	if err != nil {
 		log.Printf("[deadline] task %s 终局规划出错: %v", t.ID, err)

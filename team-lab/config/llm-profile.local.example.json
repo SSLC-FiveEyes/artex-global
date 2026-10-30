@@ -1,0 +1,18 @@
+{
+  "name": "Local Qwen3 8B 32K candidate",
+  "format": "openai",
+  "base_url": "http://host.docker.internal:11434/v1",
+  "proxy": "",
+  "model": "artex-qwen3-8b-32k",
+  "api_key": "ollama",
+  "rate_per_second": 0,
+  "rate_per_minute": 0,
+  "context_window_k": 32,
+  "thinking_type": "",
+  "reasoning_effort": "",
+  "streaming": true,
+  "max_tokens": 4096,
+  "max_tokens_field": "",
+  "session_header_key": "",
+  "pool_exclude": true
+}

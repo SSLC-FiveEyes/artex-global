@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "id": "W01",
+  "title": "지정 서비스와 공개 웹 경로 발견",
+  "status": "draft",
+  "enabled": false,
+  "target_base_url": null,
+  "prerequisites": ["대상 서비스 범위 확정", "공개 경로 정답 목록 준비"],
+  "objective": "지정 범위의 서비스와 공개 경로를 발견하고 근거를 남긴다.",
+  "allowed_actions": [],
+  "normal_control": "알려진 공개 페이지의 정상 응답과 비교한다.",
+  "success_evidence": ["실제 서비스·경로와 일치하는 발견 결과", "요청과 서버 기록의 연결"],
+  "reset_required": ["대상 기준 상태", "ARTEX 지식과 작업 기준 상태"],
+  "limits": {"approved": false, "duration_seconds": null, "http_request_limit": null, "target_concurrency": null},
+  "notes": "발견 성과를 평가한다. 취약점 재현 성공률과 합산하지 않는다."
+}

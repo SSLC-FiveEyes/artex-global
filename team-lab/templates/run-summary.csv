@@ -1,0 +1,1 @@
+run_id,run_date_kst,scenario_id,run_kind,target_id,model_track,actual_model_id,artex_revision,initial_state_id,execution_status,discovery_result,attack_result,detection_result,blocking_result,normal_user_impact,elapsed_seconds,evidence_index,report_path,review_status

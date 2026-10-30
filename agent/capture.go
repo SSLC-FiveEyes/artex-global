@@ -80,6 +80,10 @@ func captureRunSession(ctx context.Context, s *agentcore.Session, input string, 
 	for ev, err := range s.Prompt(ctx, input) {
 		if err != nil {
 			flush()
+			if completionSatisfied(ctx) {
+				rec(activityWithUsage(db.Activity{Kind: "result", Summary: completionSummary, Detail: completionSummary}, lastUsage))
+				return completionSummary, harness.ReasonCompleted, nil
+			}
 			if ctx.Err() != nil { // engine/user cancellation, not a provider failure
 				sum, detail := terminalText(ctx, &harness.Terminal{Reason: reason, Err: ctx.Err()}, lastTool)
 				rec(activityWithUsage(db.Activity{Kind: "result", Summary: firstLine(sum, 400), Detail: detail}, lastUsage))
@@ -130,6 +134,12 @@ func captureRunSession(ctx context.Context, s *agentcore.Session, input string, 
 			if ev.Terminal != nil {
 				if ev.Terminal.Reason != harness.ReasonAbortedStreaming {
 					sidequestion.Finish(ctx, ev.Terminal.Messages)
+				}
+				if completionSatisfied(ctx) {
+					flush()
+					u := ev.Terminal.Usage
+					rec(activityWithUsage(db.Activity{Kind: "result", Summary: completionSummary, Detail: completionSummary}, &u))
+					return completionSummary, harness.ReasonCompleted, nil
 				}
 				finalText = ev.Terminal.Text
 				reason = ev.Terminal.Reason
