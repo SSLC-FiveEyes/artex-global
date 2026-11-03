@@ -43,6 +43,9 @@ func TestTaskScenarioProfileCRUDAndTaskDeleteCascade(t *testing.T) {
 	if err != nil || got == nil || got.ProfileFingerprint != created.ProfileFingerprint {
 		t.Fatalf("get profile: got=%+v err=%v", got, err)
 	}
+	if string(got.Profile) != string(created.Profile) {
+		t.Fatalf("profile read back from JSONB differs from stored canonical form: %s vs %s", got.Profile, created.Profile)
+	}
 
 	updated, err := d.UpsertTaskScenarioProfile(task.ID, TaskScenarioProfileInput{
 		ScenarioID: "fiveeyes_recon",

@@ -1,6 +1,7 @@
 package db
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
@@ -59,7 +60,13 @@ func scanTaskScenarioProfile(row interface{ Scan(...any) error }) (*TaskScenario
 	if err := row.Scan(&profile.TaskID, &profile.ScenarioID, &profile.State, &profile.Version, &raw, &profile.ProfileFingerprint, &profile.CreatedAt, &profile.UpdatedAt); err != nil {
 		return nil, err
 	}
-	profile.Profile = append(json.RawMessage(nil), raw...)
+	// JSONB re-orders keys and adds spaces on read. Re-emit the same canonical
+	// encoding used for the fingerprint so callers can re-hash what they receive.
+	canonical, err := canonicalProfileJSON(raw)
+	if err != nil {
+		return nil, fmt.Errorf("stored scenario profile: %w", err)
+	}
+	profile.Profile = canonical
 	return &profile, nil
 }
 
@@ -78,13 +85,9 @@ func normalizeTaskScenarioProfileInput(in TaskScenarioProfileInput) (TaskScenari
 	if len(in.Profile) == 0 || len(in.Profile) > MaxTaskScenarioProfileBytes {
 		return in, "", fmt.Errorf("%w: profile must be a JSON object no larger than %d bytes", ErrTaskScenarioProfileInvalid, MaxTaskScenarioProfileBytes)
 	}
-	var obj map[string]json.RawMessage
-	if err := json.Unmarshal(in.Profile, &obj); err != nil || obj == nil {
-		return in, "", fmt.Errorf("%w: profile must be a JSON object", ErrTaskScenarioProfileInvalid)
-	}
-	canonical, err := json.Marshal(obj)
+	canonical, err := canonicalProfileJSON(in.Profile)
 	if err != nil {
-		return in, "", fmt.Errorf("%w: profile cannot be serialized", ErrTaskScenarioProfileInvalid)
+		return in, "", fmt.Errorf("%w: %v", ErrTaskScenarioProfileInvalid, err)
 	}
 	in.Profile = canonical
 	fingerprintSource, err := json.Marshal(struct {
@@ -163,4 +166,28 @@ func (d *DB) DeleteTaskScenarioProfile(taskID int64) (bool, error) {
 	}
 	rows, err := result.RowsAffected()
 	return rows > 0, err
+}
+
+// canonicalProfileJSON returns a compact encoding with object keys sorted at
+// every depth. PostgreSQL JSONB re-orders keys on read, so both the write path
+// (fingerprint source) and the read path use this same form. Numbers keep their
+// original literal via UseNumber, so large integers are not rounded.
+func canonicalProfileJSON(raw []byte) (json.RawMessage, error) {
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	dec.UseNumber()
+	var v any
+	if err := dec.Decode(&v); err != nil {
+		return nil, errors.New("profile must be a JSON object")
+	}
+	if dec.More() {
+		return nil, errors.New("profile must be a single JSON object")
+	}
+	if _, ok := v.(map[string]any); !ok {
+		return nil, errors.New("profile must be a JSON object")
+	}
+	out, err := json.Marshal(v)
+	if err != nil {
+		return nil, errors.New("profile cannot be serialized")
+	}
+	return out, nil
 }

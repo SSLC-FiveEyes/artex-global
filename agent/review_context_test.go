@@ -60,9 +60,19 @@ func TestWorkerReviewContextAcrossToolCalls(t *testing.T) {
 		return intercept.Decision{Action: action, Message: "probe policy"}, nil
 	})
 	turn, executions := 0, 0
+	var factIntent int64 // set once the intent node exists; the worker must persist a result
 	provider := captureUsageProvider{stream: func(_ context.Context, yield func(llm.StreamEvent, error) bool) {
 		turn++
 		events := []llm.StreamEvent{{Type: llm.SETextDelta, Text: "done"}, {Type: llm.SEMessageDelta, StopReason: "end_turn"}}
+		if turn == 3 {
+			// The completion contract rejects a worker that stops without a persisted
+			// fact; record the observation the probe produced before finishing.
+			events = []llm.StreamEvent{
+				{Type: llm.SEToolUseStart, ToolID: "call-fact", ToolName: "record_fact"},
+				{Type: llm.SEToolInputJSON, Text: fmt.Sprintf(`{"intent_id":%d,"summary":"probe created a fixture","evidence":"ContextEvidenceProbe step 1","confidence":"observed"}`, factIntent)},
+				{Type: llm.SEMessageDelta, StopReason: "tool_use"},
+			}
+		}
 		if turn <= 2 {
 			events = []llm.StreamEvent{
 				{Type: llm.SEToolUseStart, ToolID: fmt.Sprintf("call-%d", turn), ToolName: probeName},
@@ -91,6 +101,7 @@ func TestWorkerReviewContextAcrossToolCalls(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	factIntent = intentID
 	rawIntent, _ := json.Marshal(intentPayload)
 	worker := NewWorker(provider, "test-model", workDir, nil, 0, 3, probe)
 	_, _, err = worker.Execute(ctx, "test-agent", expID, nil, ts, &db.Node{ID: intentID, Payload: rawIntent}, guard.NewWithInterceptor(ic).Hooks(), nil, nil, nil)

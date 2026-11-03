@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/Autumn-27/artex/db"
@@ -20,6 +21,7 @@ const diagnosticEvidenceGuidance = `
 실행 근거와 완료 판정:
 - 실제 응답에서 발견한 링크·폼의 전체 경로와 query를 보존하세요. /login의 404는 /login.php 부재나 로그인 기능 전체 부재를 뜻하지 않습니다.
 - 도구 실행 실패·미설치·ok:false는 미실행으로 기록하세요. 요청 성공, 취약점 확인, 미확인을 구분하고 응답에 없는 버전·헤더·폼을 만들어 쓰지 마세요.
+- evidence에 적는 출력 값(버전·헤더·표식 문자열·따옴표 안 문구)은 도구 출력에서 그대로 복사하세요. 실제 입력·출력에 없는 값이 있으면 prove_goal이 거부됩니다.
 - record_fact는 메모 저장입니다. 그 성공만으로 진단이나 보고서 생성이 증명되지 않습니다. prove_goal 전에 get_worker_trace로 해당 근거를 만든 실제 도구 결과를 확인하세요.
 - 작업 종료 후 자동 보고서는 시스템의 별도 후처리입니다. 자동 보고서 생성을 진단 완료 조건이나 별도 진단 목표로 삼지 마세요. 사용자가 작업 중 파일 작성을 별도로 명시한 경우에만 Write로 현재 의도 폴더에 Markdown을 저장하고 같은 intent_id의 fact에 경로를 기록하세요. echo나 사실 노드만으로 파일 저장을 증명하지 마세요.
 - 보고서에는 실제 시험 범위·요청/응답 근거·실패·미실행·추정·확정 결과를 구분하세요. 취약점 0건은 전체 안전을 뜻하지 않습니다. 현재 근거가 목표에 부족하면 완료로 증명하지 마세요.
@@ -181,6 +183,7 @@ func (t *ToolSet) checkGoalEvidence(goal, node *db.Node) error {
 		return fmt.Errorf("추정 또는 신뢰도 미표시 사실은 완료 증명이 아닙니다. 실제 관측 근거를 기록하세요")
 	}
 	command := claimedCommand(node.Payload)
+	var mismatch []string
 	edges, err := t.ts.EdgesTouching([]int64{node.ID})
 	if err != nil {
 		return err
@@ -204,12 +207,19 @@ func (t *ToolSet) checkGoalEvidence(goal, node *db.Node) error {
 		if len(calls) == 0 || (command != "" && !commandHasResult(command, prior)) {
 			continue
 		}
+		if missing := missingEvidenceLiterals(node.Payload, calls); len(missing) > 0 {
+			mismatch = missing
+			continue
+		}
 		if !reportGoal(goal) {
 			return nil
 		}
 		if verifiedReportWrite(t.taskDir, edge.From, calls) {
 			return nil
 		}
+	}
+	if len(mismatch) > 0 {
+		return fmt.Errorf("evidence에 적은 값 %s이(가) 이 사실을 만든 intent의 실제 실행 입력·출력에 없습니다. 도구 출력에 나온 값을 그대로 옮겨 적은 새 fact를 기록하세요", quoteList(mismatch))
 	}
 	if reportGoal(goal) {
 		return fmt.Errorf("보고서 저장 근거가 없습니다. 해당 intent에서 Write로 작업 폴더에 Markdown 보고서를 저장한 뒤 경로를 포함한 새 fact를 기록하세요. 실제 파일 내용과 성공한 Write 입력이 일치해야 합니다")
@@ -307,4 +317,105 @@ func commandHasResult(command string, records []db.Activity) bool {
 		}
 	}
 	return false
+}
+
+// Literal claims in a fact's one-line evidence must come from the execution
+// record. A model that paraphrases "ARTEX_REPORT_TEST_SUCCESS" as
+// "ARTEX_REPORT_SUCCESS" has not observed what it reports, even when the command
+// itself really ran. Only two kinds of text are treated as literal claims:
+//   - spans inside backticks or double quotes that contain an ASCII letter/digit
+//   - tokens with a letter plus a digit or one of _ . / : (HTTP/1.1, nginx/1.25,
+//     index.php, ARTEX_REPORT_SUCCESS)
+// Plain words, Korean prose and bare dates/numbers are not checked, so ordinary
+// explanation does not fail the proof. Matching is case-insensitive with
+// collapsed whitespace against both the tool inputs and the tool outputs of the
+// same intent. This narrows fabricated observations; it is not a general
+// hallucination detector.
+var (
+	quotedEvidenceClaim = regexp.MustCompile("`([^`\n]{3,200})`|\"([^\"\n]{3,200})\"")
+	evidenceToken       = regexp.MustCompile(`[A-Za-z0-9][A-Za-z0-9_./:%=-]*[A-Za-z0-9]`)
+	evidenceTokenLetter = regexp.MustCompile(`[A-Za-z]`)
+	evidenceTokenMark   = regexp.MustCompile(`[0-9_./:]`)
+	asciiAlnum          = regexp.MustCompile(`[A-Za-z0-9]`)
+	collapseSpace       = regexp.MustCompile(`\s+`)
+)
+
+func claimedEvidenceLiterals(payload json.RawMessage) []string {
+	var p struct {
+		Evidence string `json:"evidence"`
+	}
+	if json.Unmarshal(payload, &p) != nil || strings.TrimSpace(p.Evidence) == "" {
+		return nil
+	}
+	seen := map[string]bool{}
+	var out []string
+	add := func(s string) {
+		s = strings.TrimSpace(s)
+		k := strings.ToLower(s)
+		if s != "" && !seen[k] {
+			seen[k] = true
+			out = append(out, s)
+		}
+	}
+	for _, m := range quotedEvidenceClaim.FindAllStringSubmatch(p.Evidence, -1) {
+		for _, g := range m[1:] {
+			if g != "" && asciiAlnum.MatchString(g) {
+				add(g)
+			}
+		}
+	}
+	rest := quotedEvidenceClaim.ReplaceAllString(p.Evidence, " ")
+	for _, tok := range evidenceToken.FindAllString(rest, -1) {
+		if len(tok) >= 4 && evidenceTokenLetter.MatchString(tok) && evidenceTokenMark.MatchString(tok) {
+			add(tok)
+		}
+	}
+	return out
+}
+
+// missingEvidenceLiterals returns the literal claims absent from every input
+// and output of calls. A truncated/spilled output may hide the cited text, so
+// in that case the literal check is skipped rather than rejecting a real
+// observation; the command provenance check still applies.
+func missingEvidenceLiterals(payload json.RawMessage, calls []db.Activity) []string {
+	claims := claimedEvidenceLiterals(payload)
+	if len(claims) == 0 {
+		return nil
+	}
+	var hay strings.Builder
+	for _, c := range calls {
+		var output string
+		_ = json.Unmarshal(c.Metadata, &output)
+		if strings.Contains(output, "<persisted-output>") || strings.Contains(output, "characters truncated]") {
+			return nil
+		}
+		hay.WriteString(c.Detail)
+		hay.WriteString("\n")
+		hay.WriteString(output)
+		hay.WriteString("\n")
+	}
+	norm := func(s string) string { return strings.ToLower(collapseSpace.ReplaceAllString(s, " ")) }
+	h := norm(hay.String())
+	// Tool inputs are stored as JSON; also match their decoded form so a claim
+	// such as "a/b" is found even when the input encodes it as "a\/b".
+	h += "\n" + norm(strings.NewReplacer(`\/`, "/", `\"`, `"`, `\n`, " ", `\t`, " ").Replace(hay.String()))
+	var missing []string
+	for _, c := range claims {
+		if !strings.Contains(h, norm(c)) {
+			missing = append(missing, c)
+		}
+	}
+	return missing
+}
+
+func quoteList(items []string) string {
+	q := make([]string, 0, len(items))
+	for i, s := range items {
+		if i == 5 {
+			q = append(q, "…")
+			break
+		}
+		q = append(q, strconv.Quote(s))
+	}
+	return strings.Join(q, ", ")
 }
