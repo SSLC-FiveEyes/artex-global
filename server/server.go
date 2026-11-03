@@ -318,7 +318,8 @@ func New(ctx context.Context, m *Manager, skillDir string, dataDir string, keyDi
 		resolveLang := s.outputLanguage
 		agent.OutputLanguage = resolveLang
 		config.CurrentLanguage = resolveLang
-		notify.Lang = resolveLang                       // 푸시·이메일의 심각도·상태 라벨도 같은 언어를 따른다
+		notify.Lang = resolveLang // 푸시·이메일의 심각도·상태 라벨도 같은 언어를 따른다
+		agent.ScenarioToolPolicyResolver = s.taskScenarioToolPolicy
 		wireAgentAugment(m.pg, s.skillDir, s.hostTools) // 可见 skills/MCP + 流量/编排 host 工具装配进 agent 工具集
 		domainReg := buildDomainReg(m.Assets())
 		wireTools(m.pg, domainReg) // 内置工具表：按 agent 过滤 + 覆盖描述/schema + 注入默认值
@@ -363,6 +364,9 @@ func New(ctx context.Context, m *Manager, skillDir string, dataDir string, keyDi
 		log.Printf("[engine] no LLM provider configured — engine idle until set via /api/llm or env")
 	}
 	s.restoreTaskRuntimes()
+	if m.pg != nil {
+		s.startAutoReportWorker()
+	}
 	go s.reconcileConcurrency()
 	s.startTaskArchiveWorker()
 	s.wireInterceptReviewer() // LLM 兜底审批:未命中拦截规则的命令交给模型判定
@@ -794,6 +798,11 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/tasks/{id}", s.getTask)
 	mux.HandleFunc("PATCH /api/tasks/{id}", s.updateTaskMetadata)
 	mux.HandleFunc("PATCH /api/tasks/{id}/category", s.updateTaskCategory)
+	// Task-scoped scenario execution profiles are reviewed through this backend
+	// API before a UI is added; no source-tree example becomes active by itself.
+	mux.HandleFunc("GET /api/tasks/{id}/scenario-profile", s.taskScenarioProfileGet)
+	mux.HandleFunc("PUT /api/tasks/{id}/scenario-profile", s.taskScenarioProfilePut)
+	mux.HandleFunc("DELETE /api/tasks/{id}/scenario-profile", s.taskScenarioProfileDelete)
 	// 任务级资产拦截/允许规则
 	mux.HandleFunc("GET /api/tasks/{id}/intercept-rules", s.taskInterceptListRules)
 	mux.HandleFunc("POST /api/tasks/{id}/intercept-rules", s.taskInterceptCreateRule)
@@ -921,6 +930,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/notify/deliveries/{id}/retry", s.notifyRetryDelivery)
 	mux.HandleFunc("POST /api/settings/web-search/test", s.testWebSearch)
 	mux.HandleFunc("GET /api/report", s.getReport)
+	mux.HandleFunc("GET /api/tasks/{id}/auto-report", s.getAutoReport)
+	mux.HandleFunc("POST /api/tasks/{id}/auto-report/retry", s.retryAutoReport)
 	mux.HandleFunc("GET /api/chat/mentions", s.searchChatMentions)
 	mux.HandleFunc("POST /api/chat", s.chat)
 	mux.HandleFunc("POST /api/chat/upload", s.chatUpload) // 方式1 文件上传:落到会话/任务工作目录 uploads/
@@ -3988,21 +3999,52 @@ func (s *Server) getReport(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, 404, "no active task")
 		return
 	}
-	findings, _ := t.Store.ListByKind(db.KindFinding, 1000) // 纯漏洞（事实是独立的 KindFact，不进报告）
-	counts := map[string]int{}
-	for _, ty := range []string{"root_domain", "ip", "subdomain", "app", "service", "endpoint"} {
-		ns, _ := s.m.Assets().QueryByType(ty, 100000, 0)
-		if len(ns) > 0 {
-			counts[ty] = len(ns)
-		}
+	md, err := s.buildTaskReport(t)
+	if err != nil {
+		writeErr(w, 500, "failed to load report records")
+		return
 	}
-	md := report.Markdown(report.Input{
-		Title: t.Description, Goal: t.Goal, GeneratedAt: time.Now(),
-		AssetCounts: counts, Findings: findings,
-	})
 	w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
 	w.WriteHeader(200)
 	_, _ = w.Write([]byte(md))
+}
+
+func (s *Server) buildTaskReport(t *Task) (string, error) {
+	findings, err := t.Store.ListByKind(db.KindFinding, 1000)
+	if err != nil {
+		return "", err
+	}
+	facts, err := t.Store.ListByKind(db.KindFact, 1000)
+	if err != nil {
+		return "", err
+	}
+	intents, err := t.Store.ListByKind(db.KindIntent, 1000)
+	if err != nil {
+		return "", err
+	}
+	goals, err := t.Store.ListByKind(db.KindGoal, 1000)
+	if err != nil {
+		return "", err
+	}
+	var activities []db.Activity
+	var cursor int64
+	for {
+		page, next, err := t.Store.ActivityList(nil, cursor, 1000)
+		if err != nil {
+			return "", err
+		}
+		activities = append(activities, page...)
+		if len(page) < 1000 || next <= cursor {
+			break
+		}
+		cursor = next
+	}
+	md := report.Markdown(report.Input{
+		TaskID: t.ID, Status: t.lifecycleSnapshot().Status,
+		Title: t.Description, Goal: t.Goal, GeneratedAt: time.Now(),
+		Findings: findings, Facts: facts, Intents: intents, Goals: goals, Activities: activities,
+	})
+	return md, nil
 }
 
 func (s *Server) getAudit(w http.ResponseWriter, r *http.Request) {

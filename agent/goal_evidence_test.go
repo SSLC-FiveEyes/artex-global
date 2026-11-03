@@ -218,3 +218,40 @@ func TestClaimedCommandIsNarrow(t *testing.T) {
 		t.Fatalf("unexpected claim %q", got)
 	}
 }
+
+func TestCustomToolsCannotSelfDeclareGoalProof(t *testing.T) {
+	for _, tool := range []string{"fiveeyes_nmap_scan", "fiveeyes_sqlmap_check", "unknown_custom"} {
+		for _, output := range []string{
+			`{"status":"executed","exit_code":0,"stdout":"offline fixture"}`,
+			`{"status":"not_run","reason":"no target"}`,
+			`{"status":"not_run"}` + "\nwarning text",
+			`{"status":"unknown","exit_code":0}`,
+			`{"status":"skipped","exit_code":0}`,
+			"model-authored successful result",
+		} {
+			if len(successfulEvidenceCalls(evidencePair(tool, `{}`, output))) != 0 {
+				t.Fatalf("custom output self-declared execution proof: %s %s", tool, output)
+			}
+		}
+	}
+}
+
+func TestEvidenceRejectsExplicitFailureVerdicts(t *testing.T) {
+	for name, output := range map[string]string{
+		"unconfigured scope": `{"status":"not_run","reason":"no target"}`,
+		"incomplete":         `{"status":"incomplete"}`,
+		"native exit":        `{"status":"executed","exit_code":1}`,
+		"invalid exit":       `{"status":"executed","exit_code":"0"}`,
+		"null exit":          `{"status":"executed","exit_code":null}`,
+		"failed":             `{"status":"FAILED"}`,
+		"ok false":           `{"ok":false}`,
+		"legacy exit suffix": "partial output\n[exit: exit status 2]",
+		"legacy timeout":     "partial output\n... [超时终止] ...",
+	} {
+		t.Run(name, func(t *testing.T) {
+			if len(successfulEvidenceCalls(evidencePair("Bash", `{}`, output))) != 0 {
+				t.Fatal("explicit failed/non-executed result accepted")
+			}
+		})
+	}
+}

@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "scenario_id": "fiveeyes-upload-webshell-simulation",
+  "state": "draft",
+  "allowed_tools": [
+    "Read",
+    "Write",
+    "record_fact",
+    "fiveeyes_upload_simulation"
+  ],
+  "scope": {
+    "status": "not_configured",
+    "isolated_clone_required": true,
+    "normal_site_target_allowed": false,
+    "test_artifact_id": null,
+    "mock_sink_only": true,
+    "allowed_follow_up_steps": [
+      "test_artifact_store",
+      "test_artifact_access",
+      "bounded_server_simulation",
+      "mock_sink_connection"
+    ],
+    "stop_conditions": []
+  },
+  "required_evidence": [
+    "artex_tool_trace",
+    "custom_tool_execution_receipt",
+    "web_server_request_log",
+    "test_file_change_record",
+    "test_process_or_mock_sink_record"
+  ]
+}

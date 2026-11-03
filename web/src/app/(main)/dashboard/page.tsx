@@ -117,6 +117,7 @@ function SectionTitle({
 
 export default function DashboardPage() {
   const t = useTranslations("dashboard");
+  const reportTitle = useTranslations("taskDetail.report");
   const tStatus = useTranslations("status");
   const rel = (ts?: string | number) => {
     const v = fmtRel(ts);
@@ -1029,6 +1030,9 @@ export default function DashboardPage() {
                       <Link href={`/function/tasks/detail?id=${t.id}`} className="group flex flex-col">
                         <span className="truncate font-medium group-hover:underline">{t.description}</span>
                         <span className="mt-0.5 truncate font-mono text-[10px] text-muted-foreground">{t.id}</span>
+                      </Link>
+                      <Link href={`/function/tasks/detail?id=${t.id}&tab=report`} className="text-[10px] text-primary hover:underline">
+                        {reportTitle("title")}
                       </Link>
                     </td>
                     <td className="px-4 py-3">

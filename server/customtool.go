@@ -287,16 +287,18 @@ func (s *Server) buildCustomTool(t *db.Tool) actool.CoreTool {
 		if params == nil {
 			params = map[string]any{}
 		}
-		switch kind {
-		case "command":
-			return s.runCommandTool(ctx, execRaw, params, tc)
-		case "script":
-			return s.runScriptTool(ctx, key, execRaw, params, tc)
-		case "http":
-			return s.runHTTPTool(ctx, execRaw, params, tc)
-		default:
-			return actool.Errorf("未知自定义工具类型: " + kind), nil
-		}
+		return executeCustomToolWithReceipt(ctx, t, params, tc, func() (actool.Result, error) {
+			switch kind {
+			case "command":
+				return s.runCommandTool(ctx, execRaw, params, tc)
+			case "script":
+				return s.runScriptTool(ctx, key, execRaw, params, tc)
+			case "http":
+				return s.runHTTPTool(ctx, execRaw, params, tc)
+			default:
+				return actool.Errorf("未知自定义工具类型: " + kind), nil
+			}
+		})
 	}
 	return actool.Build(actool.Spec{
 		Name: key, Description: t.Description, Schema: schema,
@@ -381,10 +383,12 @@ func (s *Server) runScriptTool(ctx context.Context, key string, execRaw json.Raw
 		sessionEnv = tc.Env
 	}
 	body, err := execPython(ctx, interp, key, spec.Code, params, workDir, sessionEnv, timeoutOr(spec.TimeoutMs, 120000))
-	if err != nil {
-		return actool.Errorf(err.Error()), nil
+	if err != nil && strings.TrimSpace(body) == "" {
+		body = err.Error()
 	}
-	return actool.Text(actool.Capture(tc, body)), nil
+	result := actool.Text(actool.Capture(tc, body))
+	result.IsError = err != nil
+	return result, err
 }
 
 // execPython writes the code to a temp .py under workDir/.tools, runs it via interp
@@ -410,6 +414,8 @@ func execPython(ctx context.Context, interp, key, code string, params map[string
 	runCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	c := exec.CommandContext(runCtx, interp, tmp)
+	configurePythonProcessTree(c)
+	defer cleanupPythonProcessTree(c)
 	c.Dir = workDir
 	c.Env = append(os.Environ(), sessionEnv...) // 会话代理 env
 	for k, v := range params {                  // 标量参数镜像成 TOOL_<NAME>
@@ -423,8 +429,10 @@ func execPython(ctx context.Context, interp, key, code string, params map[string
 	body := string(out)
 	if runCtx.Err() == context.DeadlineExceeded {
 		body += "\n... [超时终止] ..."
+		return body, runCtx.Err()
 	} else if err != nil {
 		body += "\n[exit: " + err.Error() + "]"
+		return body, err
 	}
 	return body, nil
 }

@@ -12,6 +12,21 @@ import (
 	"time"
 )
 
+func TestExecPythonFailurePreservesOutputAndError(t *testing.T) {
+	interp := detectPython()
+	if interp == "" {
+		t.Skip("python unavailable")
+	}
+	output, err := execPython(context.Background(), interp, "failure", "print('offline failure fixture', flush=True)\nraise SystemExit(7)", nil, t.TempDir(), nil, 5*time.Second)
+	if err == nil || !strings.Contains(output, "offline failure fixture") || !strings.Contains(output, "[exit:") {
+		t.Fatalf("process failure lost output or error: output=%q err=%v", output, err)
+	}
+	output, err = execPython(context.Background(), interp, "timeout", "import time\nprint('offline timeout fixture', flush=True)\ntime.sleep(5)", nil, t.TempDir(), nil, 100*time.Millisecond)
+	if err == nil || !strings.Contains(output, "[超时终止]") {
+		t.Fatalf("timeout was not propagated: output=%q err=%v", output, err)
+	}
+}
+
 func TestRenderTemplateCommand(t *testing.T) {
 	// command: string params shell-quoted; array → JSON (also quoted).
 	got := renderTemplate("nmap -p {ports} {target}", map[string]any{

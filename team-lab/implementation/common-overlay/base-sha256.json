@@ -1,0 +1,6 @@
+{
+  "app/bootstrap.php": "66ca8df67f76c0991231142b08753c599648d87ead01bddb6429919c019f7a70",
+  "app/auth/session.php": "4619d3e2e0d8ec9bd9682c90c4a7f93417e9cbc74e82d7a6198f78747ab25c97",
+  ".gitignore": "772ad8528c08af66cd4e7c4630f0be17b93b41c6486bee8573df2fb4afc78211",
+  ".env.example": "3df7a34f4f769ae600589ef8faedd660d768eda881708d8af1b381d841280609"
+}

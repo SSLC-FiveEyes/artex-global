@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "scenario_id": "fiveeyes-mfa-denial-check",
+  "state": "draft",
+  "allowed_tools": [
+    "Read",
+    "Write",
+    "record_fact",
+    "fiveeyes_mfa_flow_check"
+  ],
+  "scope": {
+    "status": "not_configured",
+    "approved_endpoints": [],
+    "approved_test_cases": [
+      "normal",
+      "missing",
+      "tampered",
+      "cross_session",
+      "replay"
+    ],
+    "synthetic_account_only": true,
+    "authentication_secret_available_to_artex": false,
+    "max_requests": null,
+    "stop_conditions": []
+  },
+  "required_evidence": [
+    "artex_tool_trace",
+    "custom_tool_execution_receipt",
+    "authentication_state_or_server_log",
+    "session_reset_record"
+  ]
+}

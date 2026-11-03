@@ -79,7 +79,7 @@ func goalsSystem(dataDir string, withScope bool) string {
 	if withScope {
 		sys += goalsScopeTail
 	}
-	return sys + "\n\n사용자가 진단 후 보고서를 요구하면 진단 결과의 근거 확보와 보고서 저장을 서로 다른 목표로 보존하세요. 보고서 작성 하나로 진단 요구를 대체하지 마세요. 진단 결과는 취약점 발견뿐 아니라 실제 시험 범위와 미실행·미확인 구분도 포함합니다." + langDirective(resolveOutputLang())
+	return sys + "\n\n작업 종료 후 시스템이 자동으로 만드는 보고서는 별도 후처리입니다. 자동 보고서 생성·저장을 set_goals에 등록하지 말고, 실제 진단·관찰·실행과 결과 기록을 검증 가능한 작업 목표로 등록하세요. 자동 보고서만 목표로 삼거나 보고서 생성을 작업 종료의 전제조건으로 만들지 마세요. 사용자가 자동 후처리와 별도로 작업 중 명시적으로 파일 작성을 요구한 경우는 그 파일 작성 목표를 유지합니다. 진단 결과는 실제 시험 범위와 미실행·미확인 구분을 포함합니다." + langDirective(resolveOutputLang())
 }
 
 // GoalSpec is one decomposed objective.

@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "scenario_id": "fiveeyes-recon",
+  "state": "draft",
+  "allowed_tools": [
+    "Read",
+    "Write",
+    "Edit",
+    "LS",
+    "record_fact",
+    "insert_assets",
+    "fiveeyes_nmap_scan"
+  ],
+  "scope": {
+    "status": "not_configured",
+    "approved_targets": [],
+    "approved_ports": [],
+    "approved_paths": [],
+    "max_requests": null,
+    "max_duration_seconds": null,
+    "stop_conditions": []
+  },
+  "required_evidence": [
+    "artex_tool_trace",
+    "custom_tool_execution_receipt",
+    "network_or_web_server_time_correlation",
+    "operator_scope_record"
+  ]
+}

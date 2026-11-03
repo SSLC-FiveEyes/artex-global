@@ -125,14 +125,25 @@ func (m *MainAgent) Chat(ctx context.Context, taskID int64, mainSeg int, as *db.
 	tsx.steerWork = m.steerWork   // enable steer_work tool (nil = unavailable)
 	// 领域工具 + 基础默认工具集（Read/Write/Edit/MultiEdit/LS/Glob/Grep/Bash）
 	// 资产覆盖度功能关闭时剔除 add_task_scope/list_untested_assets（不入 prompt）。
+	policy := ResolveScenarioToolPolicy(taskID)
 	base := append(tsx.DropCoverageTools(tsx.MainAgentTools()), actool.DefaultTools()...)
-	ctx = WithRunInfo(ctx, RunInfo{TaskID: taskID, ExplorationID: explorationID(ts)})
+	base = policy.FilterTools(base)
+	ctx = WithRunInfo(ctx, RunInfo{
+		TaskID: taskID, ExplorationID: explorationID(ts),
+		ScenarioID: policy.ScenarioID, ScenarioProfileState: policy.ProfileState,
+		ScenarioProfileSHA256: policy.ProfileFingerprint,
+	})
 	tools, def, cleanup := AugmentTools(ctx, "mainagent", base)
 	defer cleanup()
+	// Host/MCP/alias tools are added during augmentation, so gate the final
+	// callable and deferred surfaces rather than only the initial base slice.
+	tools = policy.FilterTools(tools)
+	def = policy.FilterDeferred(def)
 	// 本任务的工作目录 <workDir>/tasks/<taskID>，先建好。
 	mainDir := ensureRunDir(m.workDir, taskID, 0)
 	ctx = intercept.WithReviewWorkingDirectory(ctx, mainDir)
-	system, boundary := deferredSystem(mainAgentSystem(goal, m.workDir, mainDir), def)
+	sysBody := mainAgentSystem(goal, m.workDir, mainDir) + policy.PromptBlock()
+	system, boundary := deferredSystem(sysBody, def)
 	opts := agentcore.Options{
 		Provider:        m.prov,
 		SystemPrompt:    system,
@@ -141,12 +152,12 @@ func (m *MainAgent) Chat(ctx context.Context, taskID int64, mainSeg int, as *db.
 		DeferredTools:   def.Deferred,
 		UnlockSet:       def.Unlock,
 		PermissionMode:  permission.ModeBypass,
-		EnableWebFetch:  true, // 走记录代理留痕；载入代理 CA 验证 MITM 重签的 HTTPS 证书
+		EnableWebFetch:  policy.AllowsWebFetch(), // enforced profiles require explicit WebFetch allowlist entry
 		WebFetchProxy:   m.proxyAddr,
 		WebFetchCACert:  m.proxyCACert,
 		// 联网搜索(可选)。ddgs 无需 key；brave-free 需 BraveKey；tavily 需 TavilyKey。
 		// WebSearchProxy 是独立出口代理(http/https/socks5)，与记录流量的 MITM 代理无关；空则直连。
-		EnableWebSearch:       m.webSearch.Enabled,
+		EnableWebSearch:       m.webSearch.Enabled && policy.AllowsWebSearch(),
 		WebSearchBackend:      m.webSearch.Backend,
 		BraveSearchAPIKey:     m.webSearch.BraveKey,
 		TavilySearchAPIKey:    m.webSearch.TavilyKey,

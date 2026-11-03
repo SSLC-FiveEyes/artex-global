@@ -565,6 +565,56 @@ CREATE INDEX IF NOT EXISTS idx_tasks_pinned ON tasks(pinned_at DESC)
 CREATE INDEX IF NOT EXISTS idx_tasks_archived ON tasks(archived_at DESC)
     WHERE archived_at IS NOT NULL;
 
+-- One durable report job per terminal episode. Historical reports are preserved.
+CREATE TABLE IF NOT EXISTS task_auto_reports (
+    id BIGSERIAL PRIMARY KEY,
+    task_id BIGINT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    completed_at TIMESTAMPTZ NOT NULL,
+    state TEXT NOT NULL DEFAULT 'pending' CHECK (state IN ('pending','generating','ready','failed')),
+    snapshot TEXT NOT NULL DEFAULT '',
+    body TEXT NOT NULL DEFAULT '',
+    error TEXT NOT NULL DEFAULT '',
+    lease_until TIMESTAMPTZ,
+    lease_token TEXT NOT NULL DEFAULT '',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE(task_id, completed_at)
+);
+CREATE INDEX IF NOT EXISTS idx_task_auto_reports_queue ON task_auto_reports(state, created_at);
+CREATE OR REPLACE FUNCTION enqueue_task_auto_report() RETURNS trigger AS $$
+BEGIN
+    IF NEW.status IN ('done','failed','timeout') AND NEW.completed_at IS NOT NULL
+       AND (OLD.status NOT IN ('done','failed','timeout') OR OLD.completed_at IS DISTINCT FROM NEW.completed_at) THEN
+        INSERT INTO task_auto_reports(task_id, completed_at) VALUES (NEW.id, NEW.completed_at)
+        ON CONFLICT (task_id, completed_at) DO NOTHING;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+DROP TRIGGER IF EXISTS trg_task_auto_report_enqueue ON tasks;
+CREATE TRIGGER trg_task_auto_report_enqueue AFTER UPDATE OF status, completed_at ON tasks
+    FOR EACH ROW EXECUTE FUNCTION enqueue_task_auto_report();
+
+-- A task may optionally carry one scenario execution profile. The profile is
+-- deliberately stored as JSONB: the server owns interpretation and can evolve
+-- the approved scope contract without turning a scenario document into a global
+-- tool setting. Deleting a task must remove its profile with it.
+CREATE TABLE IF NOT EXISTS task_scenario_profiles (
+    task_id             BIGINT PRIMARY KEY REFERENCES tasks(id) ON DELETE CASCADE,
+    scenario_id         TEXT NOT NULL,
+    state               TEXT NOT NULL CHECK (state IN ('draft','armed')),
+    version             INTEGER NOT NULL CHECK (version >= 1),
+    profile             JSONB NOT NULL DEFAULT '{}',
+    profile_fingerprint TEXT NOT NULL,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_task_scenario_profiles_state
+    ON task_scenario_profiles(state, updated_at DESC);
+DROP TRIGGER IF EXISTS trg_task_scenario_profiles_upd ON task_scenario_profiles;
+CREATE TRIGGER trg_task_scenario_profiles_upd BEFORE UPDATE ON task_scenario_profiles
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
 -- Cold task archives retain only compact metadata in PostgreSQL. The complete
 -- task payload lives in a versioned .tar.zst package under data/archives/tasks.
 -- task_id stays unique so an operation can be retried safely after a restart.

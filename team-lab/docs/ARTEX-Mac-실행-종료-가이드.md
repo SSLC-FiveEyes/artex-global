@@ -1,5 +1,9 @@
 # ARTEX Mac 실행·종료 가이드
 
+> 2026-11-03 후속 적용: 현재 이미지는 `artex-local:goalreport-20261103-r1`, health `v0.3.15-global.1+goalreport.20261103.1`이다. 자동 보고서 r3 설명보다 이 항목이 최신이다. [후속 검증 기록](../results/2026-11-03-goal-report-separation.md)
+
+> 2026-11-03 현재 Mac 실행 이미지는 `artex-local:auto-report-20261103-r3`, health 버전은 `v0.3.15-global.1+autoreport.20261103.1`이다. 아래 이전 버전 표기는 과거 설명이며 [적용·검증 기록](../results/2026-11-03-auto-report-deployment.md)을 우선한다.
+
 기준일: 2026-10-29 · Asia/Seoul
 
 현재 Mac에 설치한 ARTEX를 직접 켜고 끄는 방법이다. 아래 명령은 Mac의 **터미널** 앱에서 실행한다. `⌘ + Space`를 누르고 ‘터미널’을 검색하면 된다.

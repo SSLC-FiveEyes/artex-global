@@ -1,0 +1,30 @@
+{
+  "key": "fiveeyes_nmap_scan",
+  "description": "승인된 단일 대상의 제한된 포트 확인. 원본 네트워크·서버 증거와 대조하고 발견과 취약점 성공을 구분한다.",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "target": {
+        "type": "string",
+        "description": "운영자가 미리 승인 목록에 고정한 대상"
+      },
+      "run_id": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9_-]{1,64}$"
+      }
+    },
+    "required": [
+      "target",
+      "run_id"
+    ],
+    "additionalProperties": false
+  },
+  "agents": [],
+  "enabled": false,
+  "kind": "script",
+  "exec": {
+    "code": "import datetime, ipaddress, json, re, shutil, subprocess, sys\n\ndef stop(reason, status=\"not_run\"):\n    print(json.dumps({\"status\": status, \"reason\": reason}, ensure_ascii=False))\n    raise SystemExit(2)\n\nparams = json.load(sys.stdin)\nrun_id = params.get(\"run_id\", \"\")\nif not isinstance(run_id, str) or not re.fullmatch(r\"[A-Za-z0-9_-]{1,64}\", run_id):\n    stop(\"run_id must contain 1-64 letters, digits, underscores or hyphens\")\n\n# Operator fills this only after the target and execution scope are approved.\nAPPROVED_IPV4 = []\nAPPROVED_PORTS = []\ntarget = params.get(\"target\", \"\")\ntry:\n    target = str(ipaddress.IPv4Address(target))\nexcept (ValueError, TypeError):\n    stop(\"one IPv4 address is required; hostnames and CIDRs are not accepted\")\nif target not in APPROVED_IPV4 or not APPROVED_PORTS:\n    stop(\"approved target/ports are not configured\")\nif any(type(p) is not int or not 1 <= p <= 65535 for p in APPROVED_PORTS):\n    stop(\"approved ports are invalid\")\nbinary = shutil.which(\"nmap\")\nif not binary:\n    stop(\"nmap is unavailable in the ARTEX execution environment\")\nargv = [binary, \"-sT\", \"-Pn\", \"-n\", \"--max-rate\", \"5\", \"--max-retries\", \"0\",\n        \"--host-timeout\", \"30s\", \"-p\", \",\".join(map(str, APPROVED_PORTS)), \"-oX\", \"-\", target]\nstarted_at = datetime.datetime.now(datetime.timezone.utc).isoformat()\ntry:\n    result = subprocess.run(argv, capture_output=True, text=True, timeout=35, check=False)\n    print(json.dumps({\"status\": \"executed\", \"run_id\": run_id,\n        \"started_at\": started_at,\n        \"argv\": argv, \"exit_code\": result.returncode,\n        \"stdout\": result.stdout, \"stderr\": result.stderr}, ensure_ascii=False))\n    if result.returncode != 0:\n        raise SystemExit(1)\nexcept subprocess.TimeoutExpired:\n    stop(\"nmap wrapper timed out; inspect independent network/server logs before classifying result\", \"incomplete\")\n",
+    "timeout_ms": 40000
+  },
+  "deferred": false
+}

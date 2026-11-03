@@ -373,10 +373,20 @@ func (p *Planner) Plan(ctx context.Context, taskID int64, as *db.AssetStore, ts 
 		tsx.SetOwnerNode(origin) // planner-side anchors default to the task root (origin fact)
 	}
 	// 资产覆盖度功能关闭时剔除 add_task_scope/list_untested_assets（不入 prompt）。
+	policy := ResolveScenarioToolPolicy(taskID)
 	base := append(tsx.DropCoverageTools(tsx.PlannerTools()), actool.DefaultTools()...)
-	ctx = WithRunInfo(ctx, RunInfo{TaskID: taskID, ExplorationID: explorationID(ts)})
+	base = policy.FilterTools(base)
+	ctx = WithRunInfo(ctx, RunInfo{
+		TaskID: taskID, ExplorationID: explorationID(ts),
+		ScenarioID: policy.ScenarioID, ScenarioProfileState: policy.ProfileState,
+		ScenarioProfileSHA256: policy.ProfileFingerprint,
+	})
 	tools, def, cleanup := AugmentTools(ctx, "planner", base)
 	defer cleanup()
+	// The final pass covers extra/deferred/alias tools that are attached by
+	// AugmentTools after the initial planner base is constructed.
+	tools = policy.FilterTools(tools)
+	def = policy.FilterDeferred(def)
 	// 关键态势（刚完成的意图 + 预取的完整图）改放【本轮 user 输入】(见下方 input)，system
 	// 只留静态规划正文。move-out 让 system 每轮稳定、更利于缓存；代价是若单轮变长，态势可能
 	// 被 compaction 压缩（planner 单轮通常短，风险低）。situational 会拼进下方 input。
@@ -395,6 +405,7 @@ func (p *Planner) Plan(ctx context.Context, taskID int64, as *db.AssetStore, ts 
 	if p.wantConstraints() {
 		sysBody += constraintBlock(ts) // 操作约束(若有)注入系统提示,框定探索边界
 	}
+	sysBody += policy.PromptBlock()
 	system, boundary := deferredSystem(sysBody, def)
 	// planner 无自身墙钟预算;有 deadline 时把 MaxDuration 夹逼到剩余,让在跑的规划轮在
 	// 任务到点时进收尾(因超时→任务超时词,因步数→per-run 词)。
@@ -411,12 +422,12 @@ func (p *Planner) Plan(ctx context.Context, taskID int64, as *db.AssetStore, ts 
 		DeferredTools:   def.Deferred,
 		UnlockSet:       def.Unlock,
 		PermissionMode:  permission.ModeBypass,
-		EnableWebFetch:  true,
+		EnableWebFetch:  policy.AllowsWebFetch(),
 		WebFetchProxy:   p.proxyAddr,
 		WebFetchCACert:  p.proxyCACert,
 		// 联网搜索(可选)。ddgs 无需 key；brave-free 需 BraveKey；tavily 需 TavilyKey。
 		// WebSearchProxy 是独立出口代理(http/https/socks5)，与记录流量的 MITM 代理无关；空则直连。
-		EnableWebSearch:       p.webSearch.Enabled,
+		EnableWebSearch:       p.webSearch.Enabled && policy.AllowsWebSearch(),
 		WebSearchBackend:      p.webSearch.Backend,
 		BraveSearchAPIKey:     p.webSearch.BraveKey,
 		TavilySearchAPIKey:    p.webSearch.TavilyKey,

@@ -1,0 +1,30 @@
+{
+  "key": "fiveeyes_sqlmap_check",
+  "description": "승인된 단일 URL/쿼리 입력의 SQL 주입 여부를 제한적으로 확인한다. DB 덤프·열거·OS 명령은 수행하지 않는다. 도구 판정을 독립 검토한다.",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "url": {
+        "type": "string",
+        "description": "운영자가 미리 승인 목록에 고정한 대상"
+      },
+      "run_id": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9_-]{1,64}$"
+      }
+    },
+    "required": [
+      "url",
+      "run_id"
+    ],
+    "additionalProperties": false
+  },
+  "agents": [],
+  "enabled": false,
+  "kind": "script",
+  "exec": {
+    "code": "import datetime, ipaddress, json, re, shutil, subprocess, sys\n\ndef stop(reason, status=\"not_run\"):\n    print(json.dumps({\"status\": status, \"reason\": reason}, ensure_ascii=False))\n    raise SystemExit(2)\n\nparams = json.load(sys.stdin)\nrun_id = params.get(\"run_id\", \"\")\nif not isinstance(run_id, str) or not re.fullmatch(r\"[A-Za-z0-9_-]{1,64}\", run_id):\n    stop(\"run_id must contain 1-64 letters, digits, underscores or hyphens\")\nfrom urllib.parse import urlsplit, parse_qs\n# Exact URL includes the approved fixed query string, without any credentials.\nAPPROVED_URLS = []\nAPPROVED_PARAMETER = \"\"\nurl = params.get(\"url\", \"\")\nif not isinstance(url, str) or url not in APPROVED_URLS or not APPROVED_PARAMETER:\n    stop(\"approved URL/parameter are not configured\")\nparts = urlsplit(url)\nif parts.scheme not in (\"http\", \"https\") or parts.username or parts.password or parts.fragment:\n    stop(\"URL must be HTTP(S), without userinfo or fragment\")\ntry:\n    ipaddress.IPv4Address(parts.hostname)\nexcept (ValueError, TypeError):\n    stop(\"URL hostname must be the approved literal IPv4 address\")\nif APPROVED_PARAMETER not in parse_qs(parts.query, keep_blank_values=True):\n    stop(\"approved query parameter is absent\")\nbinary = shutil.which(\"sqlmap\")\nif not binary:\n    stop(\"sqlmap is unavailable in the ARTEX execution environment; no automatic installation\")\nargv = [binary, \"-u\", url, \"-p\", APPROVED_PARAMETER, \"--batch\", \"--level=1\", \"--risk=1\",\n        \"--technique=B\", \"--threads=1\", \"--timeout=3\", \"--retries=0\", \"--delay=1\",\n        \"--ignore-redirects\", \"--skip-waf\", \"--disable-coloring\",\n        \"--user-agent=FIVE-EYES-\" + run_id]\ntry:\n    result = subprocess.run(argv, capture_output=True, text=True, timeout=60, check=False)\n    print(json.dumps({\"status\": \"executed\", \"run_id\": run_id,\n        \"finished_at\": datetime.datetime.now(datetime.timezone.utc).isoformat(),\n        \"argv\": argv, \"exit_code\": result.returncode,\n        \"stdout\": result.stdout, \"stderr\": result.stderr}, ensure_ascii=False))\n    if result.returncode != 0:\n        raise SystemExit(1)\nexcept subprocess.TimeoutExpired:\n    stop(\"sqlmap wrapper timed out; requests may already exist in independent logs\", \"incomplete\")\n",
+    "timeout_ms": 65000
+  },
+  "deferred": false
+}

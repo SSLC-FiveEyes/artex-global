@@ -412,10 +412,14 @@ func (s *Server) createGoals(ctx context.Context, t *Task, emit func(db.Activity
 		}
 	}
 	if len(specs) == 0 {
-		// No decomposed goals (LLM error / no provider): use the raw task goal verbatim
-		// as a single goal so the task still has something to judge against. This is the
-		// only path that writes here — decomposed goals are already persisted by the tool.
-		if g := strings.TrimSpace(t.Goal); g != "" {
+		// Preserve diagnostic instructions as a single fallback goal, excluding
+		// explicitly post-run reporting. If nothing remains, retain the raw goal:
+		// an unclear request must not silently become a goalless success.
+		g := agent.DiagnosticGoalText(t.Goal)
+		if g == "" {
+			g = strings.TrimSpace(t.Goal)
+		}
+		if g != "" {
 			log.Printf("[goals] task %s: LLM 目标拆解无产出，回退为「原始目标作为单目标」", t.ID)
 			origin, _ := t.Store.OriginFactID()
 			id, _ := t.Store.AddNode(db.KindGoal, map[string]any{"text": g}, 0, "open", "system", nil)

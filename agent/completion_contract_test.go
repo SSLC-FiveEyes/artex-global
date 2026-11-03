@@ -18,9 +18,11 @@ func TestCompletionRepairBlocksNewExecution(t *testing.T) {
 			t.Fatalf("new action %s allowed", name)
 		}
 	}
-	blocked, _, _ := h.PreToolUse(context.Background(), "record_fact", nil)
-	if blocked {
-		t.Fatal("persistence blocked")
+	for _, name := range []string{"record_fact", "get_worker_output", "get_worker_trace", "search_all_worker_traces"} {
+		blocked, _, _ := h.PreToolUse(context.Background(), name, nil)
+		if blocked {
+			t.Fatalf("recovery tool %s blocked", name)
+		}
 	}
 }
 func TestCompletionRepairIsBounded(t *testing.T) {

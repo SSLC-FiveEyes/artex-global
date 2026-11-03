@@ -1340,7 +1340,7 @@ func (t *ToolSet) recordOneFact(it factItem, defaultIntent int64) (int64, error)
 	if e := strings.TrimSpace(it.Evidence); e != "" {
 		payload["evidence"] = e
 	}
-	if c := strings.TrimSpace(it.Confidence); c != "" {
+	if c := strings.ToLower(strings.TrimSpace(it.Confidence)); c != "" {
 		payload["confidence"] = c
 	}
 	intent := pid(it.IntentID)
@@ -1465,6 +1465,9 @@ func (t *ToolSet) addOneGoal(it goalItem) (int64, error) {
 	text := strings.TrimSpace(it.Text)
 	if text == "" {
 		return 0, fmt.Errorf("text 不能为空")
+	}
+	if t.worker == "goals" && IsAutomaticReportGoal(text) {
+		return 0, fmt.Errorf("자동 보고서는 작업 종료 후 생성됩니다. 보고서 목표 대신 실제 진단·실행 및 관찰 결과를 검증하는 목표를 등록하세요")
 	}
 	payload := map[string]any{"text": text}
 	if vc := strings.TrimSpace(it.VulnClass); vc != "" {

@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { Markdown } from "@/components/markdown";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { api } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
 import { copyText } from "@/lib/utils";
 
 export function ReportTab({ taskId }: { taskId: string }) {
@@ -24,22 +24,37 @@ function TaskReport({ taskId }: { taskId: string }) {
   const [state, setState] = React.useState<ReportState>({ status: "loading" });
   const [attempt, setAttempt] = React.useState(0);
   const [copied, setCopied] = React.useState(false);
+  const [auto, setAuto] = React.useState<{ state: string; error: string; updated_at: string } | null>(null);
+  const [autoError, setAutoError] = React.useState(false);
   const report = state.status === "ready" ? state.text : "";
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: attempt intentionally restarts the request after an explicit retry.
   React.useEffect(() => {
     let active = true;
     setState({ status: "loading" });
-    api
-      .report(taskId)
-      .then((text) => {
-        if (active) setState({ status: "ready", text });
-      })
-      .catch(() => {
-        if (active) setState({ status: "error" });
-      });
+    const load = async () => {
+      try {
+        const result = await api.autoReport(taskId);
+        if (!active) return;
+        setAuto(result);
+        setAutoError(false);
+        setState({ status: "ready", text: result.body });
+      } catch (err) {
+        if (!(err instanceof ApiError) || err.status !== 404) {
+          if (active) { setAutoError(true); setState({status: "error"}); }
+          return;
+        }
+        try {
+          const text = await api.report(taskId);
+          if (active) { setAuto(null); setState({status: "ready", text}); }
+        } catch { if (active) setState({status: "error"}); }
+      }
+    };
+    void load();
+    const timer = setInterval(() => void load(), 5000);
     return () => {
       active = false;
+      clearInterval(timer);
     };
   }, [taskId, attempt]);
 
@@ -113,6 +128,11 @@ function TaskReport({ taskId }: { taskId: string }) {
         </div>
       </CardHeader>
       <CardContent>{content}</CardContent>
+      {auto && <div className="px-6 pb-4 text-sm text-muted-foreground">
+        자동 보고서: {auto.state === "pending" ? "생성 대기" : auto.state === "generating" ? "작성 중" : auto.state === "ready" ? "작성 완료 · 검토 필요" : "생성 실패"} · {new Date(auto.updated_at).toLocaleString()}
+        {auto.state === "failed" && <><p>{auto.error}</p><Button size="sm" variant="outline" onClick={async () => { try { await api.retryAutoReport(taskId); retry(); } catch { toast.error("재시도 요청에 실패했습니다"); } }}>보고서 생성 재시도</Button></>}
+      </div>}
+      {autoError && <div className="px-6 pb-4 text-sm">자동 보고서 상태를 확인할 수 없습니다.</div>}
     </Card>
   );
 }

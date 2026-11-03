@@ -374,13 +374,24 @@ func (w *Worker) execute(ctx context.Context, name string, taskID int64, as *db.
 	// base = built-in worker tools ∪ host tools (traffic) ∪ default tools (incl. Bash);
 	// then augment with the agent's visible skills/MCP. During the SDK settlement
 	// phase, Bash is hidden via Settlement.DisabledTools (no local gating needed).
+	policy := ResolveScenarioToolPolicy(taskID)
 	base := append(tsx.WorkerTools(), w.extraTools...)
 	// worker 刻意不给 MultiEdit/Glob/Grep：文件精改用 Edit、检索走 Bash(grep/find)，
 	// 收敛工具面、减少低价值调用。其余 SDK 默认工具(Read/Write/Edit/LS/Bash/Sleep)照常。
 	base = append(base, defaultToolsExcept("MultiEdit", "Glob", "Grep")...)
-	ctx = WithRunInfo(ctx, RunInfo{TaskID: taskID, ExplorationID: explorationID(ts), IntentID: intent.ID})
+	base = policy.FilterTools(base)
+	ctx = WithRunInfo(ctx, RunInfo{
+		TaskID: taskID, ExplorationID: explorationID(ts), IntentID: intent.ID,
+		ScenarioID: policy.ScenarioID, ScenarioProfileState: policy.ProfileState,
+		ScenarioProfileSHA256: policy.ProfileFingerprint,
+	})
 	tools, def, cleanup := AugmentTools(ctx, "worker", base)
 	defer cleanup()
+	// AugmentTools can add host, MCP and alias tools after the base slice was
+	// assembled. Apply the policy again at this final boundary before agentcore
+	// receives a callable/deferred tool list.
+	tools = policy.FilterTools(tools)
+	def = policy.FilterDeferred(def)
 
 	tools = withoutLegacyObserver(tools)
 
@@ -400,6 +411,7 @@ func (w *Worker) execute(ctx context.Context, name string, taskID int64, as *db.
 	if w.wantConstraints() {
 		sysBody += constraintBlock(ts) // 操作约束(若有)注入系统提示,worker 执行时严格遵守
 	}
+	sysBody += policy.PromptBlock()
 	// 意图块 → 意图锚定资产块 → 启动指令，依次追加到 system 尾部（与 constraintBlock 同一套追加法）。
 	sysBody += renderIntentTask(intent)
 	if as != nil {
@@ -439,12 +451,12 @@ func (w *Worker) execute(ctx context.Context, name string, taskID int64, as *db.
 		PermissionMode:  permission.ModeBypass,
 		// WebFetch 走记录代理，其 HTTP 与 curl 一样被留痕；载入代理 CA 让经 MITM
 		// 重签的 HTTPS 证书能【正常校验通过】（而非关掉校验）。proxy 空则直连。
-		EnableWebFetch: true,
+		EnableWebFetch: policy.AllowsWebFetch(),
 		WebFetchProxy:  w.proxyAddr,
 		WebFetchCACert: w.proxyCACert,
 		// 联网搜索(可选)。ddgs 无需 key；brave-free 需 BraveKey；tavily 需 TavilyKey。
 		// WebSearchProxy 是独立的出口代理(http/https/socks5)，与记录流量的 MITM 代理无关；空则直连。
-		EnableWebSearch:       w.webSearch.Enabled,
+		EnableWebSearch:       w.webSearch.Enabled && policy.AllowsWebSearch(),
 		WebSearchBackend:      w.webSearch.Backend,
 		BraveSearchAPIKey:     w.webSearch.BraveKey,
 		TavilySearchAPIKey:    w.webSearch.TavilyKey,

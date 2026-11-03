@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -37,8 +38,12 @@ func captureRun(ctx context.Context, opts agentcore.Options, input string, emit 
 func captureRunSession(ctx context.Context, s *agentcore.Session, input string, emit func(db.Activity)) (string, harness.TerminalReason, error) {
 	ctx, auditTrace := intercept.WithTrace(ctx, input, approvalHistory(s.Messages()))
 	defer auditTrace.Finish()
+	scenarioMetadata := scenarioActivityMetadata(ctx)
 	var reason harness.TerminalReason
 	rec := func(r db.Activity) {
+		if len(scenarioMetadata) > 0 && len(r.Metadata) == 0 {
+			r.Metadata = append(json.RawMessage(nil), scenarioMetadata...)
+		}
 		if r.Kind == "text" || r.Kind == "tool_result" {
 			auditTrace.Append(db.InterceptContextEntry{Kind: r.Kind, Tool: r.Tool, ToolUseID: r.ToolUseID, Text: r.Detail, IsError: r.IsError})
 		}
@@ -167,6 +172,25 @@ func captureRunSession(ctx context.Context, s *agentcore.Session, input string, 
 	}
 	flush() // safety: any unflushed text if the stream ended without KindResult
 	return finalText, reason, rerr
+}
+
+// scenarioActivityMetadata binds every captured step of a controlled task to the
+// host-selected profile. It is provenance only: it does not turn model prose or
+// a tool's output into proof of a target-side effect.
+func scenarioActivityMetadata(ctx context.Context) json.RawMessage {
+	ri := RunInfoFrom(ctx)
+	if ri.ScenarioID == "" {
+		return nil
+	}
+	payload, err := json.Marshal(map[string]string{
+		"scenario_id":             ri.ScenarioID,
+		"scenario_profile_state":  ri.ScenarioProfileState,
+		"scenario_profile_sha256": ri.ScenarioProfileSHA256,
+	})
+	if err != nil {
+		return nil
+	}
+	return payload
 }
 
 func activityWithUsage(activity db.Activity, usage *llm.Usage) db.Activity {

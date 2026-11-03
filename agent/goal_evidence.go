@@ -21,7 +21,7 @@ const diagnosticEvidenceGuidance = `
 - 실제 응답에서 발견한 링크·폼의 전체 경로와 query를 보존하세요. /login의 404는 /login.php 부재나 로그인 기능 전체 부재를 뜻하지 않습니다.
 - 도구 실행 실패·미설치·ok:false는 미실행으로 기록하세요. 요청 성공, 취약점 확인, 미확인을 구분하고 응답에 없는 버전·헤더·폼을 만들어 쓰지 마세요.
 - record_fact는 메모 저장입니다. 그 성공만으로 진단이나 보고서 생성이 증명되지 않습니다. prove_goal 전에 get_worker_trace로 해당 근거를 만든 실제 도구 결과를 확인하세요.
-- 보고서 목표는 Write로 현재 의도의 작업 폴더에 비어 있지 않은 Markdown 파일을 실제 저장한 뒤, 같은 intent_id의 record_fact에 경로를 기록하세요. echo로 완료 문구만 출력하거나 사실 노드만 등록하는 것은 보고서 저장이 아닙니다.
+- 작업 종료 후 자동 보고서는 시스템의 별도 후처리입니다. 자동 보고서 생성을 진단 완료 조건이나 별도 진단 목표로 삼지 마세요. 사용자가 작업 중 파일 작성을 별도로 명시한 경우에만 Write로 현재 의도 폴더에 Markdown을 저장하고 같은 intent_id의 fact에 경로를 기록하세요. echo나 사실 노드만으로 파일 저장을 증명하지 마세요.
 - 보고서에는 실제 시험 범위·요청/응답 근거·실패·미실행·추정·확정 결과를 구분하세요. 취약점 0건은 전체 안전을 뜻하지 않습니다. 현재 근거가 목표에 부족하면 완료로 증명하지 마세요.
 `
 
@@ -63,13 +63,27 @@ func successfulEvidenceResult(a db.Activity) bool {
 	}
 	s := strings.ToLower(strings.TrimSpace(a.Detail))
 	if strings.HasPrefix(s, "error:") || strings.HasPrefix(s, "blocked by hook:") ||
-		strings.Contains(s, "[exit code ") || strings.Contains(s, "command not found") {
+		strings.Contains(s, "[exit code ") || strings.Contains(s, "[exit: ") ||
+		strings.Contains(s, "[超时终止]") || strings.Contains(s, "command not found") {
 		return false
 	}
 	var status map[string]json.RawMessage
 	if json.Unmarshal([]byte(a.Detail), &status) == nil {
 		if string(status["ok"]) == "false" || string(status["success"]) == "false" {
 			return false
+		}
+		var declared string
+		if json.Unmarshal(status["status"], &declared) == nil {
+			switch strings.ToLower(strings.TrimSpace(declared)) {
+			case "not_run", "incomplete", "failed", "error", "blocked", "timeout", "timed_out":
+				return false
+			}
+		}
+		if raw, exists := status["exit_code"]; exists {
+			var code int
+			if json.Unmarshal(raw, &code) != nil || strings.TrimSpace(string(raw)) == "null" || code != 0 {
+				return false
+			}
 		}
 		if e := string(status["error"]); e != "" && e != "null" && e != `""` && e != "false" {
 			return false
@@ -144,13 +158,15 @@ func (t *ToolSet) intentEvidence(intent int64) ([]db.Activity, error) {
 	}
 }
 
+var englishReportWord = regexp.MustCompile(`(?i)\breports?\b`)
+
 func reportGoal(node *db.Node) bool {
 	var p struct {
 		Text string `json:"text"`
 	}
 	_ = json.Unmarshal(node.Payload, &p)
 	s := strings.ToLower(p.Text)
-	return strings.Contains(s, "보고서") || strings.Contains(s, "report") || strings.Contains(s, "报告")
+	return strings.Contains(s, "보고서") || englishReportWord.MatchString(s) || strings.Contains(s, "报告")
 }
 
 func (t *ToolSet) checkGoalEvidence(goal, node *db.Node) error {
@@ -161,7 +177,7 @@ func (t *ToolSet) checkGoalEvidence(goal, node *db.Node) error {
 		Confidence string `json:"confidence"`
 	}
 	_ = json.Unmarshal(node.Payload, &p)
-	if node.Kind == db.KindFact && p.Confidence != "observed" {
+	if node.Kind == db.KindFact && !strings.EqualFold(strings.TrimSpace(p.Confidence), "observed") {
 		return fmt.Errorf("추정 또는 신뢰도 미표시 사실은 완료 증명이 아닙니다. 실제 관측 근거를 기록하세요")
 	}
 	command := claimedCommand(node.Payload)
@@ -279,27 +295,16 @@ func claimedCommand(payload json.RawMessage) string {
 // commandHasResult requires the same shell command and a paired, successful
 // tool result. Activity supplied here has full detail and the tool-use ID.
 func commandHasResult(command string, records []db.Activity) bool {
-	uses := map[string]bool{}
-	for _, a := range records {
-		if a.Kind != "tool_use" || a.ToolUseID == "" || (a.Tool != "Bash" && a.Tool != "bash") {
+	for _, a := range successfulEvidenceCalls(records) {
+		if strings.ToLower(a.Tool) != "bash" {
 			continue
 		}
 		var in struct {
 			Command string `json:"command"`
 		}
 		if json.Unmarshal([]byte(a.Detail), &in) == nil && strings.TrimSpace(in.Command) == command {
-			uses[a.ToolUseID] = true
+			return true
 		}
-	}
-	for _, a := range records {
-		if a.Kind != "tool_result" || a.IsError || !uses[a.ToolUseID] {
-			continue
-		}
-		s := strings.ToLower(a.Detail)
-		if strings.Contains(s, "command not found") || strings.Contains(s, "[exit code ") || strings.HasPrefix(s, "blocked by hook:") || strings.HasPrefix(s, "error:") {
-			continue
-		}
-		return true
 	}
 	return false
 }

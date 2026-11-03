@@ -889,6 +889,8 @@ export const api = {
     if (!r.ok) throw new Error(`report: ${r.status}`);
     return r.text();
   },
+  autoReport: (taskId: string) => get<{id: number; task_id: number; state: string; body: string; error: string; created_at: string; updated_at: string}>(`/tasks/${encodeURIComponent(taskId)}/auto-report`),
+  retryAutoReport: (taskId: string) => post<{ok: boolean}>(`/tasks/${encodeURIComponent(taskId)}/auto-report/retry`, {}),
   chatMentions: (kind: string, query: string, signal?: AbortSignal, cursor = "") =>
     http<{ items: ChatMention[]; next_cursor?: string }>(
       `/chat/mentions?${new URLSearchParams({ kind, q: query, cursor })}`,

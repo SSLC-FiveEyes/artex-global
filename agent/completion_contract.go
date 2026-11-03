@@ -37,7 +37,7 @@ type completionContractHooks struct {
 func (h *completionContractHooks) PreToolUse(ctx context.Context, name string, input []byte) (bool, string, []byte) {
 	if h.repair.Load() && (!h.waitForObservation || h.observed.Load()) {
 		switch name {
-		case "record_fact", "report_finding", "prove_goal", "list_facts", "list_goals", "node_detail", "graph_overview":
+		case "record_fact", "report_finding", "prove_goal", "list_facts", "list_goals", "node_detail", "graph_overview", "get_worker_output", "get_worker_trace", "search_all_worker_traces":
 		default:
 			if h.blocked.Add(1) > 2 && h.abort != nil {
 				h.abort()

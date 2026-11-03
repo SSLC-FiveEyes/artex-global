@@ -1,0 +1,7 @@
+# Merge with Victim compose.yaml after preparing per-account enrollment privately.
+# This file does not enable MFA on its own. Default remains off.
+services:
+  web:
+    environment:
+      AIRPORT_MFA_ENABLED: ${AIRPORT_MFA_ENABLED:-0}
+      AIRPORT_MFA_SECRET_FILE: /var/www/airport/storage/private/mfa-secrets.json
