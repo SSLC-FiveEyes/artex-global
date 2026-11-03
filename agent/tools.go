@@ -1466,8 +1466,8 @@ func (t *ToolSet) addOneGoal(it goalItem) (int64, error) {
 	if text == "" {
 		return 0, fmt.Errorf("text 不能为空")
 	}
-	if t.worker == "goals" && IsAutomaticReportGoal(text) {
-		return 0, fmt.Errorf("자동 보고서는 작업 종료 후 생성됩니다. 보고서 목표 대신 실제 진단·실행 및 관찰 결과를 검증하는 목표를 등록하세요")
+	if t.worker == "goals" && (IsAutomaticReportGoal(text) || IsReportDeliverableGoal(text)) {
+		return 0, fmt.Errorf("보고서·문서 파일 작성·저장은 작업 목표가 아니라 종료 후 자동 후처리입니다. 실제 진단·공격 시도와 관찰 결과를 검증하는 목표(예: 대상 웹 애플리케이션의 취약점을 실제 요청으로 시험·확인한다)를 등록하세요")
 	}
 	payload := map[string]any{"text": text}
 	if vc := strings.TrimSpace(it.VulnClass); vc != "" {

@@ -7,10 +7,33 @@ import "strings"
 // reports still need their own verified Write evidence.
 func IsAutomaticReportGoal(text string) bool {
 	s := strings.ToLower(text)
-	korean := strings.Contains(s, "보고서") && (strings.Contains(s, "자동") || strings.Contains(s, "종료 후") || strings.Contains(s, "완료 후"))
+	korean := strings.Contains(s, "보고서") && (strings.Contains(s, "자동") || strings.Contains(s, "종료 후") || strings.Contains(s, "완료 후") || strings.Contains(s, "종료 시") || strings.Contains(s, "완료 시"))
 	english := strings.Contains(s, "report") && (strings.Contains(s, "automated") || strings.Contains(s, "automatic") || strings.Contains(s, "automatically"))
 	chinese := strings.Contains(s, "报告") && (strings.Contains(s, "自动") || strings.Contains(s, "结束后"))
 	return korean || english || chinese
+}
+
+// IsReportDeliverableGoal recognises a goal whose deliverable is producing or
+// saving a report/document file. For a diagnosis or pentest the deliverable is
+// the security outcome (what was actually tested/confirmed), never a file — the
+// system writes the report afterward as post-processing. Used only to reject
+// such goals at the goals-decomposer stage; a report-file request raised later
+// at runtime (worker != "goals") still goes through the normal Write-evidence
+// path. Requires a report/document noun AND a write/save/create verb so plain
+// diagnostic goals that merely mention recording findings are not caught.
+func IsReportDeliverableGoal(text string) bool {
+	s := strings.ToLower(text)
+	noun := strings.Contains(s, "보고서") || strings.Contains(s, "리포트") || strings.Contains(s, "report") ||
+		strings.Contains(s, "报告") || strings.Contains(s, "문서 파일") || strings.Contains(s, "markdown") || strings.Contains(s, ".md")
+	if !noun {
+		return false
+	}
+	for _, v := range []string{"작성", "저장", "생성", "만들", "남기", "write", "save", "create", "produce", "generate", "write", "作成", "编写", "生成", "保存"} {
+		if strings.Contains(s, v) {
+			return true
+		}
+	}
+	return false
 }
 
 // DiagnosticGoalText removes explicit post-run reporting instructions from

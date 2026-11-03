@@ -32,6 +32,13 @@ var reportSecret = regexp.MustCompile(`(?i)(authorization|set-cookie|cookie|pass
 var unsupportedAbsence = regexp.MustCompile(`(?m)(취약점|공격\s*성공|보안상태)[^\n]{0,35}(없음|없다|안전함|안전하다)`)
 var reportHTTPStatus = regexp.MustCompile(`(?i)HTTP\s*[:/ -]*([0-9]{3})`)
 
+// reportEndpointPath matches dynamic endpoint paths a report might claim to have
+// requested (e.g. /admin.php, /api/login.do). These are the paths a model most
+// often fabricates; every one the report cites must appear in the record given
+// to it. Static assets, .md/.json/.xml/.txt and the report's own file paths are
+// not checked here to avoid false positives on robots/sitemap and internal dirs.
+var reportEndpointPath = regexp.MustCompile(`(?i)/[A-Za-z0-9._\-/]*\.(?:php|aspx?|jsp[x]?|do|action|cgi|pl|py|rb)\b`)
+
 func validateAutoReportNarrative(s, source string) error {
 	if strings.TrimSpace(s) == "" {
 		return errors.New("모델이 빈 보고서를 반환했습니다")
@@ -51,6 +58,21 @@ func validateAutoReportNarrative(s, source string) error {
 	for _, m := range reportHTTPStatus.FindAllStringSubmatch(s, -1) {
 		if !allowed[m[1]] {
 			return errors.New("기록에 없는 HTTP 상태 코드가 보고서에 포함됐습니다")
+		}
+	}
+	// Every dynamic endpoint the report claims to have touched must be present in
+	// the record. This catches fabricated request lines such as "GET /admin.php"
+	// when the task never requested that path. Matching is case-insensitive.
+	lowerSource := strings.ToLower(source)
+	seenPath := map[string]bool{}
+	for _, p := range reportEndpointPath.FindAllString(s, -1) {
+		key := strings.ToLower(p)
+		if seenPath[key] {
+			continue
+		}
+		seenPath[key] = true
+		if !strings.Contains(lowerSource, key) {
+			return errors.New("기록에 없는 경로가 보고서에 포함됐습니다: " + p)
 		}
 	}
 	for _, term := range []string{"jupyter", "취약점 데이터베이스", "취약점 db"} {
