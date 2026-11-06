@@ -1,0 +1,218 @@
+[
+  {
+    "name": "scan_nmap_01",
+    "category": "fixture",
+    "go_accepted": true,
+    "python_accepted": false,
+    "python_reason": "nmap body 미완료: saved output accounts for the requested fixed scan scope",
+    "review_expected_accept": true
+  },
+  {
+    "name": "scan_ffuf_01",
+    "category": "fixture",
+    "go_accepted": true,
+    "python_accepted": true,
+    "python_reason": "완료영수증+승인정의+run_id일치+conclusive body",
+    "review_expected_accept": true
+  },
+  {
+    "name": "scan_sql_vuln_01",
+    "category": "fixture",
+    "go_accepted": true,
+    "python_accepted": true,
+    "python_reason": "완료영수증+승인정의+run_id일치+conclusive body",
+    "review_expected_accept": true
+  },
+  {
+    "name": "scan_sql_safe_01",
+    "category": "fixture",
+    "go_accepted": true,
+    "python_accepted": true,
+    "python_reason": "완료영수증+승인정의+run_id일치+conclusive body",
+    "review_expected_accept": true
+  },
+  {
+    "name": "scan_sql_error_01",
+    "category": "fixture",
+    "go_accepted": false,
+    "python_accepted": false,
+    "python_reason": "sqlmap body 미완료: HTTP/transport errors interfere with the test; manual review required",
+    "review_expected_accept": false
+  },
+  {
+    "name": "task_scan_nmap_01",
+    "category": "fixture",
+    "go_accepted": true,
+    "python_accepted": false,
+    "python_reason": "nmap body 미완료: saved output accounts for the requested fixed scan scope",
+    "review_expected_accept": true
+  },
+  {
+    "name": "task_scan_ffuf_01",
+    "category": "fixture",
+    "go_accepted": true,
+    "python_accepted": true,
+    "python_reason": "완료영수증+승인정의+run_id일치+conclusive body",
+    "review_expected_accept": true
+  },
+  {
+    "name": "task_scan_sql_vuln_01",
+    "category": "fixture",
+    "go_accepted": true,
+    "python_accepted": true,
+    "python_reason": "완료영수증+승인정의+run_id일치+conclusive body",
+    "review_expected_accept": true
+  },
+  {
+    "name": "task_scan_sql_safe_01",
+    "category": "fixture",
+    "go_accepted": true,
+    "python_accepted": true,
+    "python_reason": "완료영수증+승인정의+run_id일치+conclusive body",
+    "review_expected_accept": true
+  },
+  {
+    "name": "bare_no_evidence",
+    "category": "fixture",
+    "go_accepted": false,
+    "python_accepted": false,
+    "python_reason": "서버 영수증(artex_execution_receipt) 없음",
+    "review_expected_accept": false
+  },
+  {
+    "name": "bare_empty_output",
+    "category": "fixture",
+    "go_accepted": false,
+    "python_accepted": false,
+    "python_reason": "서버 영수증(artex_execution_receipt) 없음",
+    "review_expected_accept": false
+  },
+  {
+    "name": "bare_internal_error",
+    "category": "fixture",
+    "go_accepted": false,
+    "python_accepted": false,
+    "python_reason": "서버 영수증(artex_execution_receipt) 없음",
+    "review_expected_accept": false
+  },
+  {
+    "name": "v2_empty_body",
+    "category": "probe",
+    "go_accepted": false,
+    "python_accepted": false,
+    "python_reason": "nmap body 미완료: run ID mismatch",
+    "review_expected_accept": false
+  },
+  {
+    "name": "v2_internal_error",
+    "category": "probe",
+    "go_accepted": false,
+    "python_accepted": false,
+    "python_reason": "nmap body 미완료: run ID mismatch",
+    "review_expected_accept": false
+  },
+  {
+    "name": "v2_unapproved_hash",
+    "category": "probe",
+    "go_accepted": false,
+    "python_accepted": false,
+    "python_reason": "미승인 definition_sha256: aaaaaaaaaaaa…",
+    "review_expected_accept": false
+  },
+  {
+    "name": "nmap_malformed_failed_xml",
+    "category": "probe",
+    "go_accepted": true,
+    "python_accepted": false,
+    "python_reason": "nmap body 미완료: unclosed token: line 1, column 24",
+    "review_expected_accept": false
+  },
+  {
+    "name": "nmap_finished_error",
+    "category": "probe",
+    "go_accepted": true,
+    "python_accepted": false,
+    "python_reason": "nmap body 미완료: Nmap completion record absent or unsuccessful",
+    "review_expected_accept": false
+  },
+  {
+    "name": "nmap_wrong_target",
+    "category": "probe",
+    "go_accepted": true,
+    "python_accepted": false,
+    "python_reason": "nmap body 미완료: XML target mismatch",
+    "review_expected_accept": false
+  },
+  {
+    "name": "nmap_valid_aggregate_only",
+    "category": "probe",
+    "go_accepted": false,
+    "python_accepted": false,
+    "python_reason": "nmap body 미완료: saved output accounts for the requested fixed scan scope",
+    "review_expected_accept": true
+  },
+  {
+    "name": "ffuf_null_matches_false_control",
+    "category": "probe",
+    "go_accepted": true,
+    "python_accepted": false,
+    "python_reason": "ffuf matches 배열 없음",
+    "review_expected_accept": false
+  },
+  {
+    "name": "ffuf_null_control",
+    "category": "probe",
+    "go_accepted": false,
+    "python_accepted": true,
+    "python_reason": "완료영수증+승인정의+run_id일치+conclusive body",
+    "review_expected_accept": false
+  },
+  {
+    "name": "ffuf_exit9",
+    "category": "probe",
+    "go_accepted": false,
+    "python_accepted": true,
+    "python_reason": "완료영수증+승인정의+run_id일치+conclusive body",
+    "review_expected_accept": false
+  },
+  {
+    "name": "ffuf_output_hash_mismatch",
+    "category": "probe",
+    "go_accepted": false,
+    "python_accepted": true,
+    "python_reason": "완료영수증+승인정의+run_id일치+conclusive body",
+    "review_expected_accept": false
+  },
+  {
+    "name": "ffuf_runner_success_alias",
+    "category": "probe",
+    "go_accepted": false,
+    "python_accepted": true,
+    "python_reason": "완료영수증+승인정의+run_id일치+conclusive body",
+    "review_expected_accept": false
+  },
+  {
+    "name": "ffuf_missing_run_id",
+    "category": "probe",
+    "go_accepted": false,
+    "python_accepted": true,
+    "python_reason": "완료영수증+승인정의+run_id일치+conclusive body",
+    "review_expected_accept": false
+  },
+  {
+    "name": "sqlmap_incomplete_finding_block",
+    "category": "probe",
+    "go_accepted": true,
+    "python_accepted": false,
+    "python_reason": "sqlmap body 미완료: reported finding parameter differs from expected GET parameter",
+    "review_expected_accept": false
+  },
+  {
+    "name": "same_run_id_wrong_call_target",
+    "category": "probe",
+    "go_accepted": true,
+    "python_accepted": false,
+    "python_reason": "nmap body 미완료: saved output accounts for the requested fixed scan scope",
+    "review_expected_accept": false
+  }
+]

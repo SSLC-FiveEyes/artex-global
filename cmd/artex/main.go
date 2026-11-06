@@ -101,6 +101,14 @@ func run() int {
 	}
 	defer mgr.Close()
 
+	// Operator-reviewed scanner-definition approvals, loaded once before the engine
+	// serves (fail-closed): an unset ARTEX_APPROVED_SCANNER_DEFS leaves scanner
+	// evidence disabled; a set-but-invalid file aborts startup rather than running
+	// with no approval enforcement.
+	if err := agent.LoadApprovedScannerDefinitions(os.Getenv("ARTEX_APPROVED_SCANNER_DEFS")); err != nil {
+		log.Fatalf("approved scanner definitions: %v", err)
+	}
+
 	// Surviving this long means a freshly swapped-in build actually works, so drop
 	// the upgrade marker and stop counting attempts. Until it fires, every boot
 	// increments the count and a build that keeps dying gets rolled back.

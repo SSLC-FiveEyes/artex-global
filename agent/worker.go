@@ -265,7 +265,8 @@ func artifactSpec(dir string) string {
 // by the engine (ensureRunDir), so it just writes relative paths there — no manual
 // mkdir, no cross-worker name collisions.
 func workerArtifactSpec(runDir string) string {
-	return "\n\n**中间产物输出规约**：脚本、payload、抓到的响应体、临时数据等一切中间产物，**一律写到本次意图的专属工作目录 " + runDir + "**（已自动建好，直接用相对路径写在这里即可，无需再手动建目录）——**不要写 /tmp、不要用其它绝对路径**。"
+	return "\n\n**中间产物输出规约**：脚本、payload、抓到的响应体、临时数据等一切中间产物，**一律写到本次意图的专属工作目录 " + runDir + "**（已自动建好，直接用相对路径写在这里即可，无需再手动建目录）——**不要写 /tmp、不要用其它绝对路径**。" +
+		"\n- **요청 파라미터엔 실제 추출한 원문 값만 넣어라(노드 id 금지)**：curl `-d`/쿼리스트링의 각 파라미터 값은 **직전 tool_result 에서 실제로 뽑아낸 문자열 원문**이어야 한다 — CSRF 토큰·세션 쿠키·OTP 6자리(예: `artex-totp` 가 출력한 `376880`) 등을 **그 값 그대로** 넣는다. `record_fact`/블랙보드가 돌려준 **노드 id·fact id(예: 1422·1436·1438)는 내부 그래프 참조번호일 뿐 전송값이 아니다** —— 그걸 `csrf=1422`·`challenge=1436`·`otp=1438` 처럼 파라미터 값으로 넣으면 서버가 토큰 불일치로 **403** 을 돌려준다. 제출 직전, 각 값이 **어느 tool_result 의 어느 출력줄**에서 나왔는지 확인하고 그 **원문 문자열**을 복사해 넣어라. 노드 id 는 설명·기록용이지 요청 body 에 쓰지 않는다."
 }
 
 // ensureRunDir builds and creates an agent's working directory under base:
